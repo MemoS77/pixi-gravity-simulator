@@ -1,17 +1,14 @@
 import { PlanetInfo } from '../types'
+import { UNIVERSE_WIDTH, UNIVERSE_HEIGHT } from '../constants/universe'
 
 /**
  * Генерирует случайные планеты с физически корректными параметрами
  *
  * @param count - количество планет для генерации
- * @param screenWidth - ширина экрана
- * @param screenHeight - высота экрана
  * @returns массив случайно сгенерированных планет
  */
 export const generateRandomPlanets = (
-  count: number,
-  screenWidth: number = 800,
-  screenHeight: number = 600,
+  count: number
 ): PlanetInfo[] => {
   const planets: PlanetInfo[] = []
 
@@ -24,8 +21,8 @@ export const generateRandomPlanets = (
     // Случайная позиция с отступом от краев
     const margin = 100
     const position = {
-      x: Math.random() * (screenWidth - 2 * margin) + margin,
-      y: Math.random() * (screenHeight - 2 * margin) + margin,
+      x: Math.random() * (UNIVERSE_WIDTH - 2 * margin) + margin,
+      y: Math.random() * (UNIVERSE_HEIGHT - 2 * margin) + margin,
     }
 
     // Случайная скорость от -3 до 3

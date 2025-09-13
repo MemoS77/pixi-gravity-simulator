@@ -74,9 +74,7 @@ const GravitySimulation: React.FC<GravitySimulationProps> = ({
       // Применяем граничные условия
       const boundaryResult = applyBoundaryConditions(
         { x: newPositionX, y: newPositionY },
-        { x: newSpeedX, y: newSpeedY },
-        window.innerWidth,
-        window.innerHeight,
+        { x: newSpeedX, y: newSpeedY }
       )
 
       newPositionX = boundaryResult.position.x

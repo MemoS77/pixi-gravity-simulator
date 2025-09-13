@@ -42,16 +42,12 @@ const Controls: React.FC<ControlsProps> = ({
     const { generateRandomPlanets } = await import(
       './utils/generateRandomPlanets'
     )
-    const newPlanets = generateRandomPlanets(
-      planetCount,
-      window.innerWidth,
-      window.innerHeight,
-    )
+    const newPlanets = generateRandomPlanets(planetCount)
     onPlanetsGenerate(newPlanets)
   }
 
   return (
-    <div className="fixed top-5 left-5 bg-white/95 backdrop-blur-sm border border-gray-300 rounded-lg p-4 shadow-lg z-50 min-w-[250px]">
+    <div className="fixed top-5 right-5 bg-white/95 backdrop-blur-sm border border-gray-300 rounded-lg p-4 shadow-lg z-50 min-w-[250px]">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <label
