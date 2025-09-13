@@ -3,16 +3,16 @@ import Controls from './Controls'
 import PixiApp from './PixiApp'
 
 export default function App() {
-  const [rotationSpeed, setRotationSpeed] = useState<number>(0.1)
+  const [gravityConst, setGravityConst] = useState<number>(0.1)
 
   const handleControlValueChange = (value: number) => {
-    setRotationSpeed(value)
+    setGravityConst(value)
   }
 
   return (
     <>
       <Controls onValueChange={handleControlValueChange} />
-      <PixiApp rotationSpeed={rotationSpeed} />
+      <PixiApp gravityConst={gravityConst} />
     </>
   )
 }
