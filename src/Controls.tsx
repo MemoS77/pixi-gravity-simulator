@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 
 interface ControlsProps {
+  gravityConst: number
   onValueChange: (value: number) => void
 }
 
-const Controls: React.FC<ControlsProps> = ({ onValueChange }) => {
-  const [inputValue, setInputValue] = useState<number>(100)
+const Controls: React.FC<ControlsProps> = ({ gravityConst, onValueChange }) => {
+  const [inputValue, setInputValue] = useState<number>(gravityConst)
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(event.target.value) || 0
