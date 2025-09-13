@@ -5,7 +5,7 @@ interface ControlsProps {
 }
 
 const Controls: React.FC<ControlsProps> = ({ onValueChange }) => {
-  const [inputValue, setInputValue] = useState<number>(1)
+  const [inputValue, setInputValue] = useState<number>(100)
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(event.target.value) || 0
@@ -27,9 +27,9 @@ const Controls: React.FC<ControlsProps> = ({ onValueChange }) => {
           type="number"
           value={inputValue}
           onChange={handleInputChange}
-          step="0.1"
+          step="10"
           min="0"
-          max="10"
+          max="500"
           className="px-3 py-2 border border-gray-300 rounded-md text-sm font-mono transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
         />
       </div>

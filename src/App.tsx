@@ -3,7 +3,7 @@ import Controls from './Controls'
 import PixiApp from './PixiApp'
 
 export default function App() {
-  const [gravityConst, setGravityConst] = useState<number>(0.1)
+  const [gravityConst, setGravityConst] = useState<number>(100)
 
   const handleControlValueChange = (value: number) => {
     setGravityConst(value)
