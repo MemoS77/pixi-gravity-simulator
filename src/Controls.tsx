@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import './Controls.css'
 
 interface ControlsProps {
   onValueChange: (value: number) => void
@@ -15,9 +14,14 @@ const Controls: React.FC<ControlsProps> = ({ onValueChange }) => {
   }
 
   return (
-    <div className="controls-panel">
-      <div className="control-group">
-        <label htmlFor="numeric-input">Gravity const:</label>
+    <div className="fixed top-5 left-5 bg-white/95 backdrop-blur-sm border border-gray-300 rounded-lg p-4 shadow-lg z-50 min-w-[200px] opacity-70 hover:opacity-100 transition-all">
+      <div className="flex flex-col gap-2">
+        <label
+          htmlFor="numeric-input"
+          className="text-sm font-medium text-gray-700"
+        >
+          Gravity const:
+        </label>
         <input
           id="numeric-input"
           type="number"
@@ -26,7 +30,7 @@ const Controls: React.FC<ControlsProps> = ({ onValueChange }) => {
           step="0.1"
           min="0"
           max="10"
-          className="numeric-input"
+          className="px-3 py-2 border border-gray-300 rounded-md text-sm font-mono transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
         />
       </div>
     </div>
