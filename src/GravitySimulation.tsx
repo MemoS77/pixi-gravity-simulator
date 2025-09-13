@@ -1,23 +1,32 @@
 import { useTick } from '@pixi/react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { PlanetInfo } from './types'
 import Planet from './Planet'
-import { mockedPlanets } from './mock'
+
 import {
   calculateRadius,
   calculateGravitationalForce,
   checkCollisions,
-  applyBoundaryConditions
+  applyBoundaryConditions,
 } from './physics'
 
 interface GravitySimulationProps {
   gravityConst: number
+  initialPlanets?: PlanetInfo[] | null
 }
 
 const GravitySimulation: React.FC<GravitySimulationProps> = ({
   gravityConst,
+  initialPlanets,
 }) => {
-  const [planets, setPlanets] = useState<PlanetInfo[]>(mockedPlanets)
+  const [planets, setPlanets] = useState<PlanetInfo[]>(initialPlanets || [])
+
+  // Обновляем планеты при изменении initialPlanets
+  React.useEffect(() => {
+    if (initialPlanets) {
+      setPlanets(initialPlanets)
+    }
+  }, [initialPlanets])
 
   useTick((ticker) => {
     const deltaTime = ticker.deltaTime * 0.016 // Нормализуем время для стабильности
@@ -28,7 +37,11 @@ const GravitySimulation: React.FC<GravitySimulationProps> = ({
     // Вычисляем гравитационные силы между всеми парами планет
     for (let i = 0; i < planets.length; i++) {
       for (let j = i + 1; j < planets.length; j++) {
-        const force = calculateGravitationalForce(planets[i], planets[j], gravityConst)
+        const force = calculateGravitationalForce(
+          planets[i],
+          planets[j],
+          gravityConst,
+        )
 
         // Применяем силу к первой планете (притяжение ко второй)
         forces[i].fx += force.fx
@@ -63,9 +76,9 @@ const GravitySimulation: React.FC<GravitySimulationProps> = ({
         { x: newPositionX, y: newPositionY },
         { x: newSpeedX, y: newSpeedY },
         window.innerWidth,
-        window.innerHeight
+        window.innerHeight,
       )
-      
+
       newPositionX = boundaryResult.position.x
       newPositionY = boundaryResult.position.y
       newSpeedX = boundaryResult.speed.x
@@ -81,7 +94,7 @@ const GravitySimulation: React.FC<GravitySimulationProps> = ({
 
     // ШАГ 5: Проверяем коллизии и поглощения
     const planetsAfterCollisions = checkCollisions(updatedPlanets)
-    
+
     // Обновляем состояние с новыми объектами
     setPlanets(planetsAfterCollisions)
   })

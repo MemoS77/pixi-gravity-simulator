@@ -1,5 +1,6 @@
 import { Application, extend } from '@pixi/react'
 import { Container, Sprite } from 'pixi.js'
+import { PlanetInfo } from './types'
 import GravitySimulation from './GravitySimulation'
 
 extend({
@@ -9,12 +10,16 @@ extend({
 
 interface PixiAppProps {
   gravityConst: number
+  initialPlanets?: PlanetInfo[] | null
 }
 
-const PixiApp: React.FC<PixiAppProps> = ({ gravityConst }) => {
+const PixiApp: React.FC<PixiAppProps> = ({ gravityConst, initialPlanets }) => {
   return (
     <Application background={'#000'} resizeTo={window}>
-      <GravitySimulation gravityConst={gravityConst} />
+      <GravitySimulation 
+        gravityConst={gravityConst} 
+        initialPlanets={initialPlanets}
+      />
     </Application>
   )
 }
