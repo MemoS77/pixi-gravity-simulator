@@ -7,18 +7,28 @@ import {
   calculateRadius,
 } from '../physics'
 import { classifyBody } from '../utils/classify'
+import {
+  UNIVERSE_WIDTH,
+  UNIVERSE_HEIGHT,
+  DEFAULT_PLANETS_COUNT,
+} from '../constants/universe'
 
 export interface AppChangeCallback {
-  (data: { planets: PlanetInfo[]; zoom: number; camera: { x: number; y: number } }): void
+  (data: {
+    planets: PlanetInfo[]
+    zoom: number
+    camera: { x: number; y: number }
+  }): void
 }
 
 export class App extends Application {
   private planets: PlanetInfo[] = []
-  private gravityConst = 1000
+  private gravityConst = 100
   private zoom = 1
   private cameraX = 0
   private cameraY = 0
   private onChangeCallback?: AppChangeCallback
+  private worldBorder?: Graphics
 
   constructor(onChangeCallback?: AppChangeCallback) {
     super()
@@ -44,7 +54,7 @@ export class App extends Application {
   }
 
   async loadPlanets(): Promise<void> {
-    this.planets = generateRandomPlanets(1000)
+    this.planets = generateRandomPlanets(DEFAULT_PLANETS_COUNT)
 
     this.planets.forEach((planet) => {
       const graphics = new Graphics()
@@ -57,7 +67,7 @@ export class App extends Application {
   }
 
   async run(): Promise<void> {
-    console.log('run')
+    this.createWorldBorder()
     await this.loadPlanets()
     this.addTicker()
   }
@@ -118,7 +128,7 @@ export class App extends Application {
       planet.position = { x: newPositionX, y: newPositionY }
     })
 
-    // ШАГ 5: Поглощение, если приблизились как минимум на половину суммы радиусов
+    // ШАГ 5: Поглощение, если приблизились слишком близко
     const needRemove: Map<number, boolean> = new Map()
 
     for (let i = 0; i < this.planets.length; i++) {
@@ -133,7 +143,10 @@ export class App extends Application {
             ),
         )
 
-        if (distance < this.planets[i].radius + this.planets[j].radius) {
+        if (
+          distance <
+          (this.planets[i].radius + this.planets[j].radius) * 0.25
+        ) {
           const middlePoint = {
             x: (this.planets[i].position.x + this.planets[j].position.x) / 2,
             y: (this.planets[i].position.y + this.planets[j].position.y) / 2,
@@ -162,10 +175,16 @@ export class App extends Application {
           this.planets[i].position = middlePoint
           this.planets[i].speed = speed
           this.planets[i].needUpdate = true
-
-          console.log('merged', this.planets[i])
-
           needRemove.set(j, true)
+        }
+
+        // Объекты касаются друг друга
+        else if (distance < this.planets[i].radius + this.planets[j].radius) {
+          console.log(
+            'Касание',
+            this.planets[i].radius + this.planets[j].radius,
+            distance,
+          )
         }
       }
     }
@@ -189,7 +208,7 @@ export class App extends Application {
       this.onChangeCallback({
         planets: this.planets,
         zoom: this.zoom,
-        camera: { x: this.cameraX, y: this.cameraY }
+        camera: { x: this.cameraX, y: this.cameraY },
       })
     }
   }
@@ -236,5 +255,16 @@ export class App extends Application {
       -this.cameraX * this.zoom,
       -this.cameraY * this.zoom,
     )
+  }
+
+  private createWorldBorder(): void {
+    this.worldBorder = new Graphics()
+
+    // Рисуем красную рамку по границе мира
+    this.worldBorder.rect(0, 0, UNIVERSE_WIDTH, UNIVERSE_HEIGHT)
+    this.worldBorder.stroke({ color: 0xff0000, width: 7 })
+
+    // Добавляем рамку на задний план (под планеты)
+    this.stage.addChildAt(this.worldBorder, 0)
   }
 }
