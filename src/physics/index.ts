@@ -9,3 +9,13 @@ export {
   processCollisionsAndMergers,
   handlePlanetCollision
 } from './collisions'
+export { SpatialGrid } from './spatialGrid'
+export {
+  calculateOptimizedGravitationalForces,
+  calculateAdaptiveGravitationalForces
+} from './optimizedForceCalculations'
+export {
+  AdaptiveQualityManager,
+  QualityLevel,
+  type QualitySettings
+} from './adaptiveQuality'

@@ -2,10 +2,11 @@ import { Application, Graphics } from 'pixi.js'
 import { PlanetInfo } from '../types'
 import { generateRandomPlanets } from '../utils/generateRandomPlanets'
 import {
-  calculateAllGravitationalForces,
   updatePlanetPositions,
   processCollisionsAndMergers,
   handlePlanetCollision,
+  AdaptiveQualityManager,
+  QualityLevel,
 } from '../physics'
 import {
   UNIVERSE_WIDTH,
@@ -13,12 +14,15 @@ import {
   DEFAULT_PLANETS_COUNT,
 } from '../constants/universe'
 import { CameraManager } from './CameraManager'
+import { PerformanceMonitor } from '../utils/performanceMonitor'
 
 export interface AppChangeCallback {
   (data: {
     planets: PlanetInfo[]
     zoom: number
     camera: { x: number; y: number }
+    fps?: number
+    qualityLevel?: QualityLevel
   }): void
 }
 
@@ -28,11 +32,17 @@ export class App extends Application {
   private onChangeCallback?: AppChangeCallback
   private worldBorder?: Graphics
   private cameraManager: CameraManager
+  private performanceMonitor: PerformanceMonitor
+  private qualityManager: AdaptiveQualityManager
 
   constructor(onChangeCallback?: AppChangeCallback) {
     super()
     this.onChangeCallback = onChangeCallback
-    this.cameraManager = new CameraManager(this.stage, () => this.notifyChange())
+    this.cameraManager = new CameraManager(this.stage, () =>
+      this.notifyChange(),
+    )
+    this.performanceMonitor = new PerformanceMonitor()
+    this.qualityManager = new AdaptiveQualityManager(this.performanceMonitor)
   }
 
   setGravityConst(gravityConst: number): void {
@@ -73,30 +83,50 @@ export class App extends Application {
     this.loadPlanets(planetsCount)
   }
 
-  run(): void {
+  async run(): Promise<void> {
     this.restart(DEFAULT_PLANETS_COUNT)
     this.addTicker()
   }
 
   updatePlanets(deltaTime: number): void {
-    // ШАГ 1: Рассчитываем все гравитационные силы
-    const forces = calculateAllGravitationalForces(this.planets, this.gravityConst)
+    // Мониторинг производительности
+    this.performanceMonitor.startFrame()
+    this.performanceMonitor.startPhysics()
+
+    // ШАГ 1: Рассчитываем все гравитационные силы (адаптивное качество)
+    const forces = this.qualityManager.calculateForces(
+      this.planets,
+      this.gravityConst,
+    )
 
     // ШАГ 2: Обновляем позиции и скорости планет
     updatePlanetPositions(this.planets, forces, deltaTime)
 
     // ШАГ 3: Обрабатываем столкновения и слияния
-    const planetsToRemove = processCollisionsAndMergers(this.planets, handlePlanetCollision)
+    const planetsToRemove = processCollisionsAndMergers(
+      this.planets,
+      handlePlanetCollision,
+    )
 
     // ШАГ 4: Удаляем поглощенные планеты
     this.removePlanets(planetsToRemove)
 
+    // Завершаем измерение физики
+    this.performanceMonitor.endPhysics()
+
     // ШАГ 5: Применяем изменения и уведомляем об обновлении
+    this.performanceMonitor.startRender()
     this.applyPlanets()
+    this.performanceMonitor.endRender()
+
+    // Завершаем измерение кадра
+    this.performanceMonitor.endFrame(this.planets.length, 0)
+
+    // Обновляем качество на основе производительности
+    this.qualityManager.updateQuality()
+
     this.notifyChange()
   }
-
-
 
   /**
    * Удаляет планеты из массива и уничтожает их графические объекты
@@ -110,16 +140,21 @@ export class App extends Application {
       })
 
       // Удаляем планеты из массива
-      this.planets = this.planets.filter((_, index) => !planetsToRemove.has(index))
+      this.planets = this.planets.filter(
+        (_, index) => !planetsToRemove.has(index),
+      )
     }
   }
 
   private notifyChange(): void {
     if (this.onChangeCallback) {
+      const performanceStats = this.performanceMonitor.getAverageStats()
       this.onChangeCallback({
         planets: this.planets,
         zoom: this.cameraManager.getZoom(),
         camera: this.cameraManager.getCamera(),
+        fps: performanceStats.avgFps,
+        qualityLevel: this.qualityManager.getCurrentQuality(),
       })
     }
   }
@@ -152,6 +187,19 @@ export class App extends Application {
     return this.cameraManager.getCamera()
   }
 
+  // Методы управления качеством
+  setQuality(quality: QualityLevel): void {
+    this.qualityManager.setQuality(quality)
+  }
+
+  getCurrentQuality(): QualityLevel {
+    return this.qualityManager.getCurrentQuality()
+  }
+
+  getPerformanceStats() {
+    return this.performanceMonitor.getAverageStats()
+  }
+
   private createWorldBorder(): void {
     this.worldBorder = new Graphics()
 
@@ -162,6 +210,4 @@ export class App extends Application {
     // Добавляем рамку на задний план (под планеты)
     this.stage.addChildAt(this.worldBorder, 0)
   }
-
-
 }
