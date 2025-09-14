@@ -23,7 +23,7 @@ export interface AppChangeCallback {
 
 export class App extends Application {
   private planets: PlanetInfo[] = []
-  private gravityConst = 100
+  private gravityConst = 1000
   private zoom = 1
   private cameraX = 0
   private cameraY = 0
@@ -178,13 +178,9 @@ export class App extends Application {
           needRemove.set(j, true)
         }
 
-        // Объекты касаются друг друга
+        // Объекты касаются друг друга - реализуем столкновение
         else if (distance < this.planets[i].radius + this.planets[j].radius) {
-          console.log(
-            'Касание',
-            this.planets[i].radius + this.planets[j].radius,
-            distance,
-          )
+          this.handleCollision(this.planets[i], this.planets[j], distance)
         }
       }
     }
@@ -266,5 +262,65 @@ export class App extends Application {
 
     // Добавляем рамку на задний план (под планеты)
     this.stage.addChildAt(this.worldBorder, 0)
+  }
+
+  private handleCollision(
+    planet1: PlanetInfo,
+    planet2: PlanetInfo,
+    distance: number,
+  ): void {
+    // Вычисляем вектор между центрами планет
+    const dx = planet2.position.x - planet1.position.x
+    const dy = planet2.position.y - planet1.position.y
+
+    // Нормализуем вектор столкновения
+    const normalX = dx / distance
+    const normalY = dy / distance
+
+    // Вычисляем относительную скорость
+    const relativeVelX = planet2.speed.x - planet1.speed.x
+    const relativeVelY = planet2.speed.y - planet1.speed.y
+
+    // Проекция относительной скорости на нормаль столкновения
+    const velAlongNormal = relativeVelX * normalX + relativeVelY * normalY
+
+    // Если объекты уже расходятся, не обрабатываем столкновение
+    if (velAlongNormal > 0) return
+
+    // Коэффициент восстановления (0 = неупругое, 1 = упругое)
+    const restitution = 0.8
+
+    // Вычисляем импульс столкновения
+    const impulse =
+      (-(1 + restitution) * velAlongNormal) /
+      (1 / planet1.mass + 1 / planet2.mass)
+
+    // Применяем импульс к скоростям
+    const impulseX = impulse * normalX
+    const impulseY = impulse * normalY
+
+    planet1.speed.x -= impulseX / planet1.mass
+    planet1.speed.y -= impulseY / planet1.mass
+    planet2.speed.x += impulseX / planet2.mass
+    planet2.speed.y += impulseY / planet2.mass
+
+    // Разделяем объекты, чтобы они не пересекались
+    const overlap = planet1.radius + planet2.radius - distance
+    if (overlap > 0) {
+      const separationX = normalX * overlap * 0.5
+      const separationY = normalY * overlap * 0.5
+
+      planet1.position.x -= separationX
+      planet1.position.y -= separationY
+      planet2.position.x += separationX
+      planet2.position.y += separationY
+    }
+
+    // Применяем трение для постепенной остановки
+    const frictionCoeff = 0.02
+    planet1.speed.x *= 1 - frictionCoeff
+    planet1.speed.y *= 1 - frictionCoeff
+    planet2.speed.x *= 1 - frictionCoeff
+    planet2.speed.y *= 1 - frictionCoeff
   }
 }
