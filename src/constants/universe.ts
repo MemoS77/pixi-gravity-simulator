@@ -3,8 +3,8 @@
  */
 
 // Размеры вселенной
-export const UNIVERSE_WIDTH = 1000
-export const UNIVERSE_HEIGHT = 1000
+export const UNIVERSE_WIDTH = 5000
+export const UNIVERSE_HEIGHT = 5000
 
 // Параметры камеры/viewport
 export const DEFAULT_ZOOM = 1

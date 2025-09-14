@@ -10,7 +10,14 @@ import { classifyBody } from '../utils/classify'
 
 export class App extends Application {
   private planets: PlanetInfo[] = []
-  private gravityConst = 100
+  private gravityConst = 1000
+  private zoom = 1
+  private cameraX = 0
+  private cameraY = 0
+
+  setGravityConst(gravityConst: number): void {
+    this.gravityConst = gravityConst
+  }
 
   async applyPlanets(): Promise<void> {
     this.planets.forEach((planet) => {
@@ -171,5 +178,39 @@ export class App extends Application {
       const deltaTime = time.deltaTime * 0.016
       this.updatePlanets(deltaTime)
     })
+  }
+
+  // Методы управления камерой
+  setZoom(zoom: number): void {
+    this.zoom = Math.max(0.1, Math.min(10, zoom)) // Ограничиваем zoom от 0.1 до 10
+    this.applyCameraTransform()
+  }
+
+  setCamera(x: number, y: number): void {
+    this.cameraX = x
+    this.cameraY = y
+    this.applyCameraTransform()
+  }
+
+  moveCamera(deltaX: number, deltaY: number): void {
+    this.cameraX += deltaX
+    this.cameraY += deltaY
+    this.applyCameraTransform()
+  }
+
+  getZoom(): number {
+    return this.zoom
+  }
+
+  getCamera(): { x: number; y: number } {
+    return { x: this.cameraX, y: this.cameraY }
+  }
+
+  private applyCameraTransform(): void {
+    this.stage.scale.set(this.zoom)
+    this.stage.position.set(
+      -this.cameraX * this.zoom,
+      -this.cameraY * this.zoom,
+    )
   }
 }
