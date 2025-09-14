@@ -12,41 +12,6 @@ export class PerformanceMonitor {
   private maxHistorySize = 60 // Хранить данные за последние 60 кадров
 
   /**
-   * Начинает измерение времени кадра (для совместимости)
-   */
-  startFrame(): void {
-    // Ничего не делаем, только для совместимости
-  }
-
-  /**
-   * Начинает измерение физики (для совместимости)
-   */
-  startPhysics(): void {
-    // Ничего не делаем, только для совместимости
-  }
-
-  /**
-   * Заканчивает измерение физики (для совместимости)
-   */
-  endPhysics(): number {
-    return 0
-  }
-
-  /**
-   * Начинает измерение рендера (для совместимости)
-   */
-  startRender(): void {
-    // Ничего не делаем, только для совместимости
-  }
-
-  /**
-   * Заканчивает измерение рендера (для совместимости)
-   */
-  endRender(): number {
-    return 0
-  }
-
-  /**
    * Отмечает начало нового кадра и возвращает FPS
    */
   recordFrame(): number {
@@ -97,10 +62,7 @@ export class PerformanceMonitor {
     return Math.max(1, Math.min(240, fps))
   }
 
-  /**
-   * Для совместимости с существующим кодом
-   */
-  endFrame(objectCount = 0, interactionCount = 0): PerformanceStats {
+  endFrame(): PerformanceStats {
     this.recordFrame()
     return this.getStats()
   }
@@ -116,10 +78,7 @@ export class PerformanceMonitor {
     }
   }
 
-  /**
-   * Возвращает текущие статистики производительности
-   */
-  getStats(objectCount = 0, interactionCount = 0): PerformanceStats {
+  getStats(): PerformanceStats {
     return {
       fps: this.getFPS(),
     }

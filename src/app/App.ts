@@ -9,6 +9,7 @@ import {
 } from '../constants/universe'
 import { CameraManager } from './CameraManager'
 import { PhysicsWorkerManager } from '../workers/PhysicsWorkerManager'
+import { CosmicBodies } from '../utils/classify'
 
 export interface AppChangeCallback {
   (data: {
@@ -49,7 +50,7 @@ export class App extends Application {
     this.physicsWorker.setGravityConst(gravityConst)
   }
 
-  applyPlanets(): void {
+  async applyPlanets(): Promise<void> {
     this.planetsMap.forEach((planet) => {
       if (!planet.graphics) return
       planet.graphics.position.set(planet.position.x, planet.position.y)
@@ -57,7 +58,9 @@ export class App extends Application {
         planet.graphics.clear()
         planet.graphics.circle(0, 0, planet.radius)
         planet.graphics.fill(planet.color)
-        planet.graphics.stroke({ color: 0xffffff, width: 1 })
+        if (planet.density >= CosmicBodies.BlackHole.density) {
+          planet.graphics.stroke({ color: 0xffffff, width: 2 })
+        }
         planet.needUpdate = false
       }
     })

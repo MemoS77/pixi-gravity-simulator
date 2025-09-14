@@ -96,12 +96,9 @@ function updatePhysics(deltaTime: number): {
   removedPlanetIds: number[]
   updatedPlanetIds: number[]
 } {
+  //console.time('updatePhysics')
   // Отслеживаем измененные и удаленные планеты
   const updatedPlanetIds: number[] = []
-
-  // Мониторинг производительности
-  state.performanceMonitor.startFrame()
-  state.performanceMonitor.startPhysics()
 
   const forces = calculateAllGravitationalForces(
     state.planets,
@@ -136,12 +133,9 @@ function updatePhysics(deltaTime: number): {
     (_, index) => !planetsToRemove.has(index),
   )
 
-  // Завершаем измерение физики
-  state.performanceMonitor.endPhysics()
-  state.performanceMonitor.endRender() // В воркере нет рендеринга, но вызываем для корректности
-  state.performanceMonitor.endFrame(state.planets.length, 0)
+  state.performanceMonitor.endFrame()
 
-  // Качество не используется больше
+  //console.timeEnd('updatePhysics')
 
   return {
     removedPlanetIds,
