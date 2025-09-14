@@ -9,12 +9,10 @@ import { PerformanceMonitor } from '../utils/performanceMonitor'
 import { generateRandomPlanets } from '../utils/generateRandomPlanets'
 
 // Убираем зависимость от Graphics объектов PixiJS в воркере
-type WorkerPlanetInfo = Omit<PlanetInfo, 'graphics'> & {
-  id: number // Добавляем id для отслеживания объектов
-}
+type WorkerPlanetInfo = Omit<PlanetInfo, 'graphics'>
 
 interface PhysicsWorkerState {
-  planets: WorkerPlanetInfo[]
+  planets: Map<number, WorkerPlanetInfo>
   gravityConst: number
   paused: boolean
   lastFrameTime: number
@@ -67,7 +65,7 @@ interface WorkerOutgoingMessage {
 
 // Состояние воркера
 const state: PhysicsWorkerState = {
-  planets: [],
+  planets: new Map(),
   gravityConst: 1000,
   paused: false,
   lastFrameTime: 0,
@@ -84,11 +82,15 @@ function init(gravityConst: number): void {
 // Генерация планет
 function generatePlanets(count: number): void {
   const planets = generateRandomPlanets(count)
-  state.planets = planets.map((planet) => ({
-    ...planet,
-    id: state.nextPlanetId++,
-    needUpdate: true,
-  }))
+  state.planets.clear()
+  
+  planets.forEach((planet) => {
+    const workerPlanet: WorkerPlanetInfo = {
+      ...planet,
+      needUpdate: true,
+    }
+    state.planets.set(planet.id, workerPlanet)
+  })
 }
 
 // Обновление физики
@@ -110,25 +112,22 @@ function updatePhysics(deltaTime: number): {
     state.planets,
     (planet1, planet2, distance) => {
       // При слиянии или изменении отмечаем планеты как обновленные
-      const result = handlePlanetCollision(planet1, planet2, distance)
+      handlePlanetCollision(planet1, planet2, distance)
       // Проверяем, была ли планета обновлена
-      if ((planet1 as WorkerPlanetInfo).needUpdate) {
-        updatedPlanetIds.push((planet1 as WorkerPlanetInfo).id)
+      if (planet1.needUpdate) {
+        updatedPlanetIds.push(planet1.id)
       }
-      return result
+      if (planet2.needUpdate) {
+        updatedPlanetIds.push(planet2.id)
+      }
     },
   )
 
-  // ШАГ 4: Получаем список удаленных планет
-  const removedPlanetIds: number[] = []
-  planetsToRemove.forEach((_, index) => {
-    removedPlanetIds.push(state.planets[index].id)
-  })
-
-  // Удаляем планеты из массива
-  state.planets = state.planets.filter(
-    (_, index) => !planetsToRemove.has(index),
-  )
+  // ШАГ 4: Удаляем планеты из Map
+  const removedPlanetIds = planetsToRemove
+  for (const id of removedPlanetIds) {
+    state.planets.delete(id)
+  }
 
   state.performanceMonitor.endFrame()
 
@@ -161,7 +160,7 @@ function startUpdateLoop(): void {
     const performanceStats = state.performanceMonitor.getAverageStats()
     const message: WorkerOutgoingMessage = {
       type: 'planetsUpdate',
-      planets: state.planets,
+      planets: Array.from(state.planets.values()),
       fps: performanceStats.avgFps,
 
       removedPlanetIds,

@@ -37,6 +37,7 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
     }
 
     planets.push({
+      id: i,
       mass,
       density,
       position,

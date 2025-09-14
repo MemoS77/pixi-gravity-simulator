@@ -3,23 +3,22 @@ import { applyBoundaryConditions } from './applyBoundaryConditions'
 
 /**
  * Обновляет позиции и скорости всех планет на основе действующих сил
- * @param planets Массив планет
- * @param forces Массив сил для каждой планеты
+ * @param planets Map планет
+ * @param forces Map сил для каждой планеты
  * @param deltaTime Временной шаг
  */
 export function updatePlanetPositions(
-  planets: PlanetInfo[],
-  forces: Array<{ fx: number; fy: number }>,
+  planets: Map<number, PlanetInfo>,
+  forces: Map<number, { fx: number; fy: number }>,
   deltaTime: number
 ): void {
-  // Рассчитываем ускорения для всех планет
-  const accelerations = forces.map((force, index) => ({
-    ax: force.fx / planets[index].mass,
-    ay: force.fy / planets[index].mass,
-  }))
+  for (const [id, planet] of planets) {
+    const force = forces.get(id)
+    if (!force) continue
 
-  planets.forEach((planet, index) => {
-    const { ax, ay } = accelerations[index]
+    // Рассчитываем ускорение
+    const ax = force.fx / planet.mass
+    const ay = force.fy / planet.mass
 
     // Обновляем скорость: v = v0 + at
     let newSpeedX = planet.speed.x + ax * deltaTime
@@ -44,5 +43,5 @@ export function updatePlanetPositions(
       x: boundaryResult.position.x,
       y: boundaryResult.position.y
     }
-  })
+  }
 }

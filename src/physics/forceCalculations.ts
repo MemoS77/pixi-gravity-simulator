@@ -9,8 +9,8 @@ type Force = {
   fy: number
 }
 
-export function calcForces(planets: PlanetInfo[], gravityConst: number) {
-  if (planets.length > MAX_PLANETS_FOR_OPTIMIZE) {
+export function calcForces(planets: Map<number, PlanetInfo>, gravityConst: number): Map<number, Force> {
+  if (planets.size > MAX_PLANETS_FOR_OPTIMIZE) {
     return optimizeCalcForces(planets, gravityConst)
   }
   return calculateAllGravitationalForces(planets, gravityConst)
@@ -20,112 +20,156 @@ let nextPairCheckCache: [number, number][] = []
 const MIN_FORCE = 5
 const STEPS_TO_USE_PAIR_CHECK = 100
 let checkStep = 0
-let lastPlanetsLength = 0
-let cachedForces: Force[] = []
+let lastPlanetsSize = 0
+let cachedForces: Map<number, Force> = new Map()
 
 function optimizeCalcForces(
-  planets: PlanetInfo[],
+  planets: Map<number, PlanetInfo>,
   gravityConst: number,
-): Array<Force> {
-  const forces = planets.map(() => ({ fx: 0, fy: 0 }))
+): Map<number, Force> {
+  const forces = new Map<number, Force>()
+  const planetIds = Array.from(planets.keys())
+  
+  // Инициализируем силы для всех планет
+  for (const id of planetIds) {
+    forces.set(id, { fx: 0, fy: 0 })
+  }
 
   if (
     checkStep > STEPS_TO_USE_PAIR_CHECK ||
-    lastPlanetsLength !== planets.length
+    lastPlanetsSize !== planets.size
   ) {
     nextPairCheckCache = []
     checkStep = 0
-    lastPlanetsLength = planets.length
+    lastPlanetsSize = planets.size
 
     // Сохраним сумму сил для пар планет, которые не будем считать
-    cachedForces = planets.map(() => ({ fx: 0, fy: 0 }))
+    cachedForces.clear()
+    for (const id of planetIds) {
+      cachedForces.set(id, { fx: 0, fy: 0 })
+    }
 
     // Вычисляем гравитационные силы между всеми парами планет
-    for (let i = 0; i < planets.length; i++) {
-      for (let j = i + 1; j < planets.length; j++) {
+    for (let i = 0; i < planetIds.length; i++) {
+      for (let j = i + 1; j < planetIds.length; j++) {
+        const id1 = planetIds[i]
+        const id2 = planetIds[j]
+        const planet1 = planets.get(id1)!
+        const planet2 = planets.get(id2)!
+        
         const force = calculateGravitationalForce(
-          planets[i],
-          planets[j],
+          planet1,
+          planet2,
           gravityConst,
         )
 
         if (
           (Math.abs(force.fx) > MIN_FORCE || Math.abs(force.fy) > MIN_FORCE) &&
-          !arePlanetsMovingAway(planets[i], planets[j])
+          !arePlanetsMovingAway(planet1, planet2)
         ) {
-          nextPairCheckCache.push([i, j])
+          nextPairCheckCache.push([id1, id2])
         } else {
-          cachedForces[i].fx += force.fx
-          cachedForces[i].fy += force.fy
-          cachedForces[j].fx -= force.fx
-          cachedForces[j].fy -= force.fy
+          const cached1 = cachedForces.get(id1)!
+          const cached2 = cachedForces.get(id2)!
+          cached1.fx += force.fx
+          cached1.fy += force.fy
+          cached2.fx -= force.fx
+          cached2.fy -= force.fy
         }
 
         // Применяем силу к первой планете (притяжение ко второй)
-        forces[i].fx += force.fx
-        forces[i].fy += force.fy
+        const force1 = forces.get(id1)!
+        const force2 = forces.get(id2)!
+        force1.fx += force.fx
+        force1.fy += force.fy
 
         // Применяем противоположную силу ко второй планете (третий закон Ньютона)
-        forces[j].fx -= force.fx
-        forces[j].fy -= force.fy
+        force2.fx -= force.fx
+        force2.fy -= force.fy
       }
     }
 
     console.log(
       'nextPairCheckCache',
       nextPairCheckCache.length,
-      lastPlanetsLength,
-      cachedForces.length,
+      lastPlanetsSize,
+      cachedForces.size,
     )
   } else {
     checkStep++
 
     for (let ti = 0; ti < nextPairCheckCache.length; ti++) {
-      const [i, j] = nextPairCheckCache[ti]
+      const [id1, id2] = nextPairCheckCache[ti]
+      const planet1 = planets.get(id1)
+      const planet2 = planets.get(id2)
+      
+      // Проверяем, что планеты еще существуют
+      if (!planet1 || !planet2) continue
 
       const force = calculateGravitationalForce(
-        planets[i],
-        planets[j],
+        planet1,
+        planet2,
         gravityConst,
       )
+      
       // Применяем силу к первой планете (притяжение ко второй)
-      forces[i].fx += force.fx
-      forces[i].fy += force.fy
+      const force1 = forces.get(id1)!
+      const force2 = forces.get(id2)!
+      force1.fx += force.fx
+      force1.fy += force.fy
 
       // Применяем противоположную силу ко второй планете (третий закон Ньютона)
-      forces[j].fx -= force.fx
-      forces[j].fy -= force.fy
+      force2.fx -= force.fx
+      force2.fy -= force.fy
     }
 
-    for (let i = 0; i < planets.length; i++) {
-      forces[i].fx += cachedForces[i].fx
-      forces[i].fy += cachedForces[i].fy
+    for (const id of planetIds) {
+      const force = forces.get(id)!
+      const cached = cachedForces.get(id)
+      if (cached) {
+        force.fx += cached.fx
+        force.fy += cached.fy
+      }
     }
   }
   return forces
 }
 
 function calculateAllGravitationalForces(
-  planets: PlanetInfo[],
+  planets: Map<number, PlanetInfo>,
   gravityConst: number,
-): Array<Force> {
-  const forces = planets.map(() => ({ fx: 0, fy: 0 }))
+): Map<number, Force> {
+  const forces = new Map<number, Force>()
+  const planetIds = Array.from(planets.keys())
+  
+  // Инициализируем силы для всех планет
+  for (const id of planetIds) {
+    forces.set(id, { fx: 0, fy: 0 })
+  }
 
   // Вычисляем гравитационные силы между всеми парами планет
-  for (let i = 0; i < planets.length; i++) {
-    for (let j = i + 1; j < planets.length; j++) {
+  for (let i = 0; i < planetIds.length; i++) {
+    for (let j = i + 1; j < planetIds.length; j++) {
+      const id1 = planetIds[i]
+      const id2 = planetIds[j]
+      const planet1 = planets.get(id1)!
+      const planet2 = planets.get(id2)!
+      
       const force = calculateGravitationalForce(
-        planets[i],
-        planets[j],
+        planet1,
+        planet2,
         gravityConst,
       )
+      
       // Применяем силу к первой планете (притяжение ко второй)
-      forces[i].fx += force.fx
-      forces[i].fy += force.fy
+      const force1 = forces.get(id1)!
+      const force2 = forces.get(id2)!
+      force1.fx += force.fx
+      force1.fy += force.fy
 
       // Применяем противоположную силу ко второй планете (третий закон Ньютона)
-      forces[j].fx -= force.fx
-      forces[j].fy -= force.fy
+      force2.fx -= force.fx
+      force2.fy -= force.fy
     }
   }
 
