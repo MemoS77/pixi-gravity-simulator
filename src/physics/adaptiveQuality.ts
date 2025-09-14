@@ -34,10 +34,10 @@ export class AdaptiveQualityManager {
   private qualitySettings: Record<QualityLevel, QualitySettings> = {
     [QualityLevel.LOW]: {
       level: QualityLevel.LOW,
-      maxInteractionDistance: 800,
-      minForceThreshold: 0.1,
+      maxInteractionDistance: 1200, // Увеличиваем для лучшей точности
+      minForceThreshold: 0.02, // Порог для разделения на точные/аппроксимированные
       spatialGridEnabled: true,
-      updateFrequency: 2 // Обновлять физику каждый 2-й кадр
+      updateFrequency: 1 // Обновляем каждый кадр с аппроксимацией
     },
     [QualityLevel.MEDIUM]: {
       level: QualityLevel.MEDIUM,
@@ -99,43 +99,133 @@ export class AdaptiveQualityManager {
   }
 
   /**
-   * Расчет сил для низкого качества - только ближайшие соседи
+   * Расчет сил для низкого качества - физически корректная аппроксимация
    */
   private calculateLowQualityForces(planets: PlanetInfo[], gravityConst: number): Array<{ fx: number; fy: number }> {
     const forces = planets.map(() => ({ fx: 0, fy: 0 }))
     const settings = this.qualitySettings[QualityLevel.LOW]
     const maxDistSq = settings.maxInteractionDistance * settings.maxInteractionDistance
+    const maxDirectInteractions = 15 // Максимум точных взаимодействий
 
     for (let i = 0; i < planets.length; i++) {
-      let interactionCount = 0
-      const maxInteractions = 10 // Максимум 10 взаимодействий на объект
+      const currentPlanet = planets[i]
+      
+      // Разделяем взаимодействия на точные и аппроксимированные
+      const directInteractions: Array<{
+        index: number
+        forceX: number
+        forceY: number
+        priority: number
+      }> = []
+      
+      const distantObjects: Array<{
+        mass: number
+        x: number
+        y: number
+      }> = []
 
       for (let j = 0; j < planets.length; j++) {
-        if (i === j || interactionCount >= maxInteractions) continue
+        if (i === j) continue
 
-        const dx = planets[j].position.x - planets[i].position.x
-        const dy = planets[j].position.y - planets[i].position.y
+        const otherPlanet = planets[j]
+        const dx = otherPlanet.position.x - currentPlanet.position.x
+        const dy = otherPlanet.position.y - currentPlanet.position.y
         const distSq = dx * dx + dy * dy
 
         if (distSq > maxDistSq) continue
 
-        // Простой расчет силы без вызова отдельной функции
         const distance = Math.sqrt(distSq)
-        const force = (gravityConst * planets[i].mass * planets[j].mass) / distSq
+        const force = (gravityConst * currentPlanet.mass * otherPlanet.mass) / distSq
         
-        if (force < settings.minForceThreshold) continue
+        if (force < settings.minForceThreshold) {
+          // Не игнорируем, а сохраняем для аппроксимации
+          distantObjects.push({
+            mass: otherPlanet.mass,
+            x: otherPlanet.position.x,
+            y: otherPlanet.position.y
+          })
+          continue
+        }
 
         const forceX = force * (dx / distance)
         const forceY = force * (dy / distance)
+        const priority = force / distance
 
-        forces[i].fx += forceX
-        forces[i].fy += forceY
+        directInteractions.push({
+          index: j,
+          forceX,
+          forceY,
+          priority
+        })
+      }
 
-        interactionCount++
+      // Применяем самые сильные взаимодействия точно
+      directInteractions.sort((a, b) => b.priority - a.priority)
+      const topInteractions = directInteractions.slice(0, maxDirectInteractions)
+      
+      for (const interaction of topInteractions) {
+        forces[i].fx += interaction.forceX
+        forces[i].fy += interaction.forceY
+      }
+
+      // Аппроксимируем слабые взаимодействия через центр масс
+      if (distantObjects.length > 0) {
+        const approximateForce = this.calculateCenterOfMassApproximation(
+          currentPlanet, 
+          distantObjects, 
+          gravityConst
+        )
+        forces[i].fx += approximateForce.fx
+        forces[i].fy += approximateForce.fy
       }
     }
 
     return forces
+  }
+
+  /**
+   * Аппроксимация слабых взаимодействий через центр масс
+   */
+  private calculateCenterOfMassApproximation(
+    currentPlanet: PlanetInfo,
+    distantObjects: Array<{ mass: number; x: number; y: number }>,
+    gravityConst: number
+  ): { fx: number; fy: number } {
+    if (distantObjects.length === 0) {
+      return { fx: 0, fy: 0 }
+    }
+
+    // Вычисляем центр масс всех далеких объектов
+    let totalMass = 0
+    let centerX = 0
+    let centerY = 0
+
+    for (const obj of distantObjects) {
+      totalMass += obj.mass
+      centerX += obj.x * obj.mass
+      centerY += obj.y * obj.mass
+    }
+
+    centerX /= totalMass
+    centerY /= totalMass
+
+    // Рассчитываем силу от эквивалентного объекта в центре масс
+    const dx = centerX - currentPlanet.position.x
+    const dy = centerY - currentPlanet.position.y
+    const distSq = dx * dx + dy * dy
+    
+    if (distSq === 0) return { fx: 0, fy: 0 }
+    
+    const distance = Math.sqrt(distSq)
+    const force = (gravityConst * currentPlanet.mass * totalMass) / distSq
+    
+    // Применяем коэффициент аппроксимации (0.3 - консервативно)
+    const approximationFactor = 0.3
+    
+    return {
+      fx: (force * (dx / distance)) * approximationFactor,
+      fy: (force * (dy / distance)) * approximationFactor
+    }
   }
 
   /**
