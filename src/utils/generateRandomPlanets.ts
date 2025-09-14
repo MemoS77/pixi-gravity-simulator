@@ -7,14 +7,12 @@ import { UNIVERSE_WIDTH, UNIVERSE_HEIGHT } from '../constants/universe'
  * @param count - количество планет для генерации
  * @returns массив случайно сгенерированных планет
  */
-export const generateRandomPlanets = (
-  count: number
-): PlanetInfo[] => {
+export const generateRandomPlanets = (count: number): PlanetInfo[] => {
   const planets: PlanetInfo[] = []
 
   for (let i = 0; i < count; i++) {
     // Случайная масса от 3 до 50
-    const mass = Math.random() * 47 + 3
+    const mass = Math.random() * 200
 
     const density = 1
 
