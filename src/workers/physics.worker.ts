@@ -2,7 +2,7 @@ import {
   updatePlanetPositions,
   processCollisionsAndMergers,
   handlePlanetCollision,
-  calculateAllGravitationalForces,
+  calcForces,
 } from '../physics'
 import { PlanetInfo } from '../types'
 import { PerformanceMonitor } from '../utils/performanceMonitor'
@@ -100,10 +100,7 @@ function updatePhysics(deltaTime: number): {
   // Отслеживаем измененные и удаленные планеты
   const updatedPlanetIds: number[] = []
 
-  const forces = calculateAllGravitationalForces(
-    state.planets,
-    state.gravityConst,
-  )
+  const forces = calcForces(state.planets, state.gravityConst)
 
   // ШАГ 2: Обновляем позиции и скорости планет
   updatePlanetPositions(state.planets, forces, deltaTime)

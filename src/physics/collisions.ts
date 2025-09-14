@@ -78,6 +78,7 @@ export function processCollisionsAndMergers(
   ) => void,
 ): Map<number, boolean> {
   const needRemove: Map<number, boolean> = new Map()
+  //return needRemove
 
   for (let i = 0; i < planets.length; i++) {
     if (needRemove.has(i)) continue

@@ -58,7 +58,7 @@ export class App extends Application {
         planet.graphics.clear()
         planet.graphics.circle(0, 0, planet.radius)
         planet.graphics.fill(planet.color)
-        if (planet.density >= CosmicBodies.BlackHole.density) {
+        if (planet.density >= CosmicBodies.NeutronStar.density) {
           planet.graphics.stroke({ color: 0xffffff, width: 2 })
         }
         planet.needUpdate = false
