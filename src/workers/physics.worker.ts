@@ -88,7 +88,7 @@ function init(gravityConst: number): void {
 // Генерация планет
 function generatePlanets(count: number): void {
   const planets = generateRandomPlanets(count)
-  state.planets = planets.map(planet => ({
+  state.planets = planets.map((planet) => ({
     ...planet,
     id: state.nextPlanetId++,
     needUpdate: true,
@@ -98,11 +98,11 @@ function generatePlanets(count: number): void {
 // Обновление физики
 function updatePhysics(deltaTime: number): {
   removedPlanetIds: number[]
-  updatedPlanetIds: number[] 
+  updatedPlanetIds: number[]
 } {
   // Отслеживаем измененные и удаленные планеты
   const updatedPlanetIds: number[] = []
-  
+
   // Мониторинг производительности
   state.performanceMonitor.startFrame()
   state.performanceMonitor.startPhysics()
@@ -127,7 +127,7 @@ function updatePhysics(deltaTime: number): {
         updatedPlanetIds.push((planet1 as WorkerPlanetInfo).id)
       }
       return result
-    }
+    },
   )
 
   // ШАГ 4: Получаем список удаленных планет
@@ -137,7 +137,9 @@ function updatePhysics(deltaTime: number): {
   })
 
   // Удаляем планеты из массива
-  state.planets = state.planets.filter((_, index) => !planetsToRemove.has(index))
+  state.planets = state.planets.filter(
+    (_, index) => !planetsToRemove.has(index),
+  )
 
   // Завершаем измерение физики
   state.performanceMonitor.endPhysics()
@@ -156,7 +158,7 @@ function updatePhysics(deltaTime: number): {
 // Главный цикл обновления
 function startUpdateLoop(): void {
   const targetFrameTime = 1000 / 60 // 60 FPS (в мс)
-  
+
   function update(): void {
     if (state.paused) {
       setTimeout(update, targetFrameTime)
@@ -164,11 +166,12 @@ function startUpdateLoop(): void {
     }
 
     const now = performance.now()
-    const deltaTime = state.lastFrameTime === 0 ? 0.016 : (now - state.lastFrameTime) / 1000
-    
+    const deltaTime = 1 / 60
+    //state.lastFrameTime === 0 ? 0.016 : (now - state.lastFrameTime) / 1000
+
     // Обновляем физику
     const { removedPlanetIds, updatedPlanetIds } = updatePhysics(deltaTime)
-    
+
     // Отправляем обновленные данные в основной поток
     const performanceStats = state.performanceMonitor.getAverageStats()
     const message: WorkerOutgoingMessage = {
@@ -180,48 +183,51 @@ function startUpdateLoop(): void {
       updatedPlanetIds,
     }
     postMessage(message)
-    
+
     state.lastFrameTime = now
-    
+
     // Рассчитываем сколько нужно подождать до следующего обновления
     const elapsedTime = performance.now() - now
     const waitTime = Math.max(0, targetFrameTime - elapsedTime)
-    
+
     setTimeout(update, waitTime)
   }
-  
+
   // Запускаем цикл обновления
-  update();
+  update()
 }
 
 // Обработчик сообщений от основного потока
-self.addEventListener('message', (event: MessageEvent<WorkerIncomingMessage>) => {
-  const message = event.data
-  
-  switch (message.type) {
-    case 'init':
-      init(message.gravityConst)
-      startUpdateLoop()
-      break
-    
-    case 'updateGravity':
-      state.gravityConst = message.gravityConst
-      break
-    
-    case 'generatePlanets':
-      generatePlanets(message.count)
-      break
-    
-    case 'setPaused':
-      state.paused = message.paused
-      // Если возобновляем после паузы, обновляем lastFrameTime
-      if (!state.paused) {
-        state.lastFrameTime = performance.now()
-      }
-      break
-    
-    case 'setQuality':
-      state.qualityManager.setQuality(message.quality)
-      break
-  }
-})
+self.addEventListener(
+  'message',
+  (event: MessageEvent<WorkerIncomingMessage>) => {
+    const message = event.data
+
+    switch (message.type) {
+      case 'init':
+        init(message.gravityConst)
+        startUpdateLoop()
+        break
+
+      case 'updateGravity':
+        state.gravityConst = message.gravityConst
+        break
+
+      case 'generatePlanets':
+        generatePlanets(message.count)
+        break
+
+      case 'setPaused':
+        state.paused = message.paused
+        // Если возобновляем после паузы, обновляем lastFrameTime
+        if (!state.paused) {
+          state.lastFrameTime = performance.now()
+        }
+        break
+
+      case 'setQuality':
+        state.qualityManager.setQuality(message.quality)
+        break
+    }
+  },
+)

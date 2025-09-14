@@ -45,10 +45,7 @@ interface PlanetsUpdateMessage {
 
 // Колбэк для обновления данных из воркера
 export interface PhysicsUpdateCallback {
-  (data: {
-    fps: number
-    qualityLevel: QualityLevel
-  }): void
+  (data: { fps: number; qualityLevel: QualityLevel }): void
 }
 
 export class PhysicsWorkerManager {
@@ -58,11 +55,17 @@ export class PhysicsWorkerManager {
   private stage: Container
   private planetsMap: Map<number, PlanetInfo> // Используем внешний Map из App
 
-  constructor(stage: Container, planetsMap: Map<number, PlanetInfo>, onUpdate: PhysicsUpdateCallback) {
+  constructor(
+    stage: Container,
+    planetsMap: Map<number, PlanetInfo>,
+    onUpdate: PhysicsUpdateCallback,
+  ) {
     this.stage = stage
     this.onUpdate = onUpdate
     this.planetsMap = planetsMap
-    this.worker = new Worker(new URL('./physics.worker.ts', import.meta.url), { type: 'module' })
+    this.worker = new Worker(new URL('./physics.worker.ts', import.meta.url), {
+      type: 'module',
+    })
     this.setupWorkerListeners()
   }
 
@@ -72,7 +75,7 @@ export class PhysicsWorkerManager {
   init(gravityConst: number): void {
     this.sendToWorker<InitMessage>({
       type: 'init',
-      gravityConst
+      gravityConst,
     })
   }
 
@@ -82,7 +85,7 @@ export class PhysicsWorkerManager {
   setGravityConst(gravityConst: number): void {
     this.sendToWorker<UpdateGravityMessage>({
       type: 'updateGravity',
-      gravityConst
+      gravityConst,
     })
   }
 
@@ -92,10 +95,10 @@ export class PhysicsWorkerManager {
   generatePlanets(count: number): void {
     // Очищаем старые данные
     this.clearPlanets()
-    
+
     this.sendToWorker<GeneratePlanetsMessage>({
       type: 'generatePlanets',
-      count
+      count,
     })
   }
 
@@ -106,7 +109,7 @@ export class PhysicsWorkerManager {
     this.paused = paused
     this.sendToWorker<UpdatePauseMessage>({
       type: 'setPaused',
-      paused
+      paused,
     })
   }
 
@@ -116,7 +119,7 @@ export class PhysicsWorkerManager {
   setQuality(quality: QualityLevel): void {
     this.sendToWorker<SetQualityMessage>({
       type: 'setQuality',
-      quality
+      quality,
     })
   }
 
@@ -125,12 +128,12 @@ export class PhysicsWorkerManager {
    */
   private clearPlanets(): void {
     // Удаляем графические объекты
-    this.planetsMap.forEach(planet => {
+    this.planetsMap.forEach((planet) => {
       if (planet.graphics) {
         planet.graphics.destroy()
       }
     })
-    
+
     // Очищаем коллекцию
     this.planetsMap.clear()
   }
@@ -141,7 +144,7 @@ export class PhysicsWorkerManager {
   private setupWorkerListeners(): void {
     this.worker.addEventListener('message', (event: MessageEvent) => {
       const message = event.data
-      
+
       if (message.type === 'planetsUpdate') {
         this.handlePlanetsUpdate(message)
       }
@@ -152,31 +155,32 @@ export class PhysicsWorkerManager {
    * Обработка обновлений планет из воркера
    */
   private handlePlanetsUpdate(message: PlanetsUpdateMessage): void {
+    //console.log(message)
     // Удаление планет, которые были поглощены
-    message.removedPlanetIds.forEach(id => {
+    message.removedPlanetIds.forEach((id) => {
       const planet = this.planetsMap.get(id)
       if (planet && planet.graphics) {
         planet.graphics.destroy()
       }
       this.planetsMap.delete(id)
     })
-    
+
     // Обновление или добавление планет
-    message.planets.forEach(workerPlanet => {
+    message.planets.forEach((workerPlanet) => {
       let planet = this.planetsMap.get(workerPlanet.id)
-      
+
       // Если планета новая, создаем графику для нее
       if (!planet) {
         // Создаем новую графику
         const graphics = new Graphics()
-        
+
         // Добавляем графику на сцену
         this.stage.addChild(graphics)
-        
+
         planet = {
           ...workerPlanet,
           graphics,
-          needUpdate: true
+          needUpdate: true,
         }
         this.planetsMap.set(workerPlanet.id, planet)
       } else {
@@ -187,22 +191,22 @@ export class PhysicsWorkerManager {
         planet.radius = workerPlanet.radius
         planet.color = workerPlanet.color
         planet.density = workerPlanet.density
-        
+
         // Отмечаем необходимость обновления графики, если планета была изменена
-        const needsGraphicsUpdate = 
-          message.updatedPlanetIds.includes(workerPlanet.id) || 
+        const needsGraphicsUpdate =
+          message.updatedPlanetIds.includes(workerPlanet.id) ||
           workerPlanet.needUpdate
-        
+
         if (needsGraphicsUpdate) {
           planet.needUpdate = true
         }
       }
     })
-    
+
     // Вызываем колбэк обновления только с метриками
     this.onUpdate({
       fps: message.fps,
-      qualityLevel: message.qualityLevel
+      qualityLevel: message.qualityLevel,
     })
   }
 

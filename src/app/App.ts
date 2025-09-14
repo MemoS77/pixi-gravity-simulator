@@ -27,6 +27,7 @@ export class App extends Application {
   private cameraManager: CameraManager
   private physicsWorker: PhysicsWorkerManager
   private isPaused: boolean = false
+  private wasUpdated: boolean = false
 
   constructor(onChangeCallback?: AppChangeCallback) {
     super()
@@ -34,9 +35,13 @@ export class App extends Application {
     this.cameraManager = new CameraManager(this.stage, () =>
       this.notifyChange(),
     )
-    
+
     // Создаем менеджер физического воркера и передаем ссылку на Map
-    this.physicsWorker = new PhysicsWorkerManager(this.stage, this.planetsMap, this.handlePhysicsUpdate.bind(this))
+    this.physicsWorker = new PhysicsWorkerManager(
+      this.stage,
+      this.planetsMap,
+      this.handlePhysicsUpdate.bind(this),
+    )
   }
 
   setGravityConst(gravityConst: number): void {
@@ -53,8 +58,8 @@ export class App extends Application {
         planet.graphics.circle(0, 0, planet.radius)
         planet.graphics.fill(planet.color)
         planet.graphics.stroke({ color: 0xffffff, width: 1 })
+        planet.needUpdate = false
       }
-      planet.needUpdate = false
     })
   }
 
@@ -73,7 +78,7 @@ export class App extends Application {
   async run(): Promise<void> {
     // Инициализируем воркер
     this.physicsWorker.init(this.gravityConst)
-    
+
     this.restart(DEFAULT_PLANETS_COUNT)
     this.addTicker()
   }
@@ -81,11 +86,14 @@ export class App extends Application {
   /**
    * Обработка обновления физики от воркера
    */
-  private handlePhysicsUpdate(data: { fps: number, qualityLevel: QualityLevel }): void {
+  private handlePhysicsUpdate(data: {
+    fps: number
+    qualityLevel: QualityLevel
+  }): void {
     // Планеты уже обновлены в нашем Map через ссылку
-    this.applyPlanets()
-    
+    //this.applyPlanets()
     // Обновляем UI через колбэк
+    this.wasUpdated = true
     this.notifyChange(data.fps, data.qualityLevel)
   }
 
@@ -96,7 +104,7 @@ export class App extends Application {
     this.isPaused = !this.isPaused
     this.physicsWorker.setPaused(this.isPaused)
   }
-  
+
   /**
    * Проверка статуса паузы
    */
@@ -118,6 +126,8 @@ export class App extends Application {
 
   addTicker(): void {
     this.ticker.add(() => {
+      if (!this.wasUpdated) return
+      this.wasUpdated = false
       // Только синхронизация графики с данными из воркера
       this.applyPlanets()
     })
