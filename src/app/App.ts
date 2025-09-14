@@ -1,258 +1,168 @@
 import { Application, Graphics } from 'pixi.js'
 import { PlanetInfo } from '../types'
-import { generateRandomPlanets } from '../utils/generateRandomPlanets'
-import {
-  applyBoundaryConditions,
-  calculateGravitationalForce,
-  calculateRadius,
-} from '../physics'
-import { classifyBody } from '../utils/classify'
 import {
   UNIVERSE_WIDTH,
   UNIVERSE_HEIGHT,
   DEFAULT_PLANETS_COUNT,
+  UNIVERSE_BORDER_COLOR,
+  UNIVERSE_BORDER_WIDTH,
+  DEFAULT_GRAVITY_CONST,
 } from '../constants/universe'
+import { CameraManager } from './CameraManager'
+import { PhysicsWorkerManager } from '../workers/PhysicsWorkerManager'
+import { CosmicBodies } from '../utils/classify'
 
 export interface AppChangeCallback {
   (data: {
     planets: PlanetInfo[]
     zoom: number
     camera: { x: number; y: number }
+    fps?: number
   }): void
 }
 
 export class App extends Application {
-  private planets: PlanetInfo[] = []
-  private gravityConst = 1000
-  private zoom = 1
-  private cameraX = 0
-  private cameraY = 0
+  private planetsMap: Map<number, PlanetInfo> = new Map<number, PlanetInfo>()
+  private gravityConst = DEFAULT_GRAVITY_CONST
   private onChangeCallback?: AppChangeCallback
   private worldBorder?: Graphics
+  private cameraManager: CameraManager
+  private physicsWorker: PhysicsWorkerManager
+  private isPaused: boolean = false
+  private wasUpdated: boolean = false
 
   constructor(onChangeCallback?: AppChangeCallback) {
     super()
     this.onChangeCallback = onChangeCallback
+    this.cameraManager = new CameraManager(this.stage, () =>
+      this.notifyChange(),
+    )
+
+    // Создаем менеджер физического воркера и передаем ссылку на Map
+    this.physicsWorker = new PhysicsWorkerManager(
+      this.stage,
+      this.planetsMap,
+      this.handlePhysicsUpdate.bind(this),
+    )
   }
 
   setGravityConst(gravityConst: number): void {
     this.gravityConst = gravityConst
+    this.physicsWorker.setGravityConst(gravityConst)
   }
 
   async applyPlanets(): Promise<void> {
-    this.planets.forEach((planet) => {
+    this.planetsMap.forEach((planet) => {
       if (!planet.graphics) return
       planet.graphics.position.set(planet.position.x, planet.position.y)
       if (planet.needUpdate) {
         planet.graphics.clear()
         planet.graphics.circle(0, 0, planet.radius)
         planet.graphics.fill(planet.color)
-        planet.graphics.stroke({ color: 0xffffff, width: 1 })
+        if (planet.density >= CosmicBodies.NeutronStar.density) {
+          planet.graphics.stroke({ color: 0xffffff, width: 2 })
+        }
+        planet.needUpdate = false
       }
-      planet.needUpdate = false
     })
   }
 
-  async loadPlanets(): Promise<void> {
-    this.planets = generateRandomPlanets(DEFAULT_PLANETS_COUNT)
+  loadPlanets(planetsCount: number): void {
+    // Генерируем планеты в воркере
+    this.physicsWorker.generatePlanets(planetsCount)
+  }
 
-    this.planets.forEach((planet) => {
-      const graphics = new Graphics()
-      this.stage.addChild(graphics)
-      planet.graphics = graphics
-      planet.needUpdate = true
-    })
-
-    await this.applyPlanets()
+  restart(planetsCount: number): void {
+    this.planetsMap.clear()
+    this.stage.removeChildren()
+    this.createWorldBorder()
+    this.loadPlanets(planetsCount)
   }
 
   async run(): Promise<void> {
-    this.createWorldBorder()
-    await this.loadPlanets()
+    // Инициализируем воркер
+    this.physicsWorker.init(this.gravityConst)
+
+    this.restart(DEFAULT_PLANETS_COUNT)
     this.addTicker()
   }
 
-  updatePlanets(deltaTime: number): void {
-    // ШАГ 1: Рассчитываем все гравитационные силы
-    const forces = this.planets.map(() => ({ fx: 0, fy: 0 }))
-
-    // Вычисляем гравитационные силы между всеми парами планет
-    for (let i = 0; i < this.planets.length; i++) {
-      for (let j = i + 1; j < this.planets.length; j++) {
-        const force = calculateGravitationalForce(
-          this.planets[i],
-          this.planets[j],
-          this.gravityConst,
-        )
-
-        // Применяем силу к первой планете (притяжение ко второй)
-        forces[i].fx += force.fx
-        forces[i].fy += force.fy
-
-        // Применяем противоположную силу ко второй планете (третий закон Ньютона)
-        forces[j].fx -= force.fx
-        forces[j].fy -= force.fy
-      }
-    }
-
-    // ШАГ 2: Рассчитываем ускорения для всех планет
-    const accelerations = forces.map((force, index) => ({
-      ax: force.fx / this.planets[index].mass,
-      ay: force.fy / this.planets[index].mass,
-    }))
-
-    this.planets.forEach((planet, index) => {
-      const { ax, ay } = accelerations[index]
-
-      // Обновляем скорость: v = v0 + at
-      let newSpeedX = planet.speed.x + ax * deltaTime
-      let newSpeedY = planet.speed.y + ay * deltaTime
-
-      // Обновляем позицию: x = x0 + vt
-      let newPositionX = planet.position.x + newSpeedX * deltaTime
-      let newPositionY = planet.position.y + newSpeedY * deltaTime
-
-      // Применяем граничные условия
-      const boundaryResult = applyBoundaryConditions(
-        { x: newPositionX, y: newPositionY },
-        { x: newSpeedX, y: newSpeedY },
-      )
-
-      newPositionX = boundaryResult.position.x
-      newPositionY = boundaryResult.position.y
-      newSpeedX = boundaryResult.speed.x
-      newSpeedY = boundaryResult.speed.y
-
-      // Возвращаем новый объект планеты
-      planet.speed = { x: newSpeedX, y: newSpeedY }
-      planet.position = { x: newPositionX, y: newPositionY }
-    })
-
-    // ШАГ 5: Поглощение, если приблизились слишком близко
-    const needRemove: Map<number, boolean> = new Map()
-
-    for (let i = 0; i < this.planets.length; i++) {
-      if (needRemove.has(i)) continue
-      for (let j = i + 1; j < this.planets.length; j++) {
-        if (needRemove.has(j)) continue
-        const distance = Math.sqrt(
-          Math.pow(this.planets[i].position.x - this.planets[j].position.x, 2) +
-            Math.pow(
-              this.planets[i].position.y - this.planets[j].position.y,
-              2,
-            ),
-        )
-
-        const glueDistance = Math.min(
-          this.planets[i].radius,
-          this.planets[j].radius,
-        )
-
-        if (distance <= glueDistance) {
-          const middlePoint = {
-            x: (this.planets[i].position.x + this.planets[j].position.x) / 2,
-            y: (this.planets[i].position.y + this.planets[j].position.y) / 2,
-          }
-          // Склеиваем и перевычиляем радиус, переклассифицируем с новой плотностью и цветом
-          const mergedMass = this.planets[i].mass + this.planets[j].mass
-          const { color, density } = classifyBody(mergedMass)
-          const mergedRadius = calculateRadius(mergedMass, density)
-
-          // Сложить векторно скорость с учетом масс
-          const speed = {
-            x:
-              (this.planets[i].speed.x * this.planets[i].mass +
-                this.planets[j].speed.x * this.planets[j].mass) /
-              mergedMass,
-            y:
-              (this.planets[i].speed.y * this.planets[i].mass +
-                this.planets[j].speed.y * this.planets[j].mass) /
-              mergedMass,
-          }
-
-          this.planets[i].mass = mergedMass
-          this.planets[i].density = density
-          this.planets[i].color = color
-          this.planets[i].radius = mergedRadius
-          this.planets[i].position = middlePoint
-          this.planets[i].speed = speed
-          this.planets[i].needUpdate = true
-          needRemove.set(j, true)
-        }
-
-        // Объекты касаются друг друга - реализуем столкновение
-        else if (distance < this.planets[i].radius + this.planets[j].radius) {
-          this.handleCollision(this.planets[i], this.planets[j], distance)
-        }
-      }
-    }
-
-    // Удаляем спрайты
-
-    if (needRemove.size > 0) {
-      needRemove.forEach((_, index) => {
-        this.planets[index].graphics?.destroy()
-      })
-
-      this.planets = this.planets.filter((_, index) => !needRemove.has(index))
-    }
-
-    this.applyPlanets()
-    this.notifyChange()
+  /**
+   * Обработка обновления физики от воркера
+   */
+  private handlePhysicsUpdate(data: { fps: number }): void {
+    // Планеты уже обновлены в нашем Map через ссылку
+    //this.applyPlanets()
+    // Обновляем UI через колбэк
+    this.wasUpdated = true
+    this.notifyChange(data.fps)
   }
 
-  private notifyChange(): void {
+  /**
+   * Пауза/возобновление симуляции
+   */
+  togglePause(): void {
+    this.isPaused = !this.isPaused
+    this.physicsWorker.setPaused(this.isPaused)
+  }
+
+  /**
+   * Проверка статуса паузы
+   */
+  getPauseStatus(): boolean {
+    return this.isPaused
+  }
+
+  private notifyChange(fps?: number): void {
     if (this.onChangeCallback) {
       this.onChangeCallback({
-        planets: this.planets,
-        zoom: this.zoom,
-        camera: { x: this.cameraX, y: this.cameraY },
+        planets: Array.from(this.planetsMap.values()),
+        zoom: this.cameraManager.getZoom(),
+        camera: this.cameraManager.getCamera(),
+        fps,
       })
     }
   }
 
   addTicker(): void {
-    this.ticker.add((time) => {
-      const deltaTime = time.deltaTime * 0.016
-      this.updatePlanets(deltaTime)
+    this.ticker.add(() => {
+      if (!this.wasUpdated) return
+      this.wasUpdated = false
+      // Только синхронизация графики с данными из воркера
+      this.applyPlanets()
     })
   }
 
   // Методы управления камерой
   setZoom(zoom: number): void {
-    this.zoom = Math.max(0.1, Math.min(10, zoom)) // Ограничиваем zoom от 0.1 до 10
-    this.applyCameraTransform()
-    this.notifyChange()
+    this.cameraManager.setZoom(zoom)
   }
 
   setCamera(x: number, y: number): void {
-    this.cameraX = x
-    this.cameraY = y
-    this.applyCameraTransform()
-    this.notifyChange()
+    this.cameraManager.setCamera(x, y)
   }
 
   moveCamera(deltaX: number, deltaY: number): void {
-    this.cameraX += deltaX
-    this.cameraY += deltaY
-    this.applyCameraTransform()
-    this.notifyChange()
+    this.cameraManager.moveCamera(deltaX, deltaY)
   }
 
   getZoom(): number {
-    return this.zoom
+    return this.cameraManager.getZoom()
   }
 
   getCamera(): { x: number; y: number } {
-    return { x: this.cameraX, y: this.cameraY }
+    return this.cameraManager.getCamera()
   }
 
-  private applyCameraTransform(): void {
-    this.stage.scale.set(this.zoom)
-    this.stage.position.set(
-      -this.cameraX * this.zoom,
-      -this.cameraY * this.zoom,
-    )
+  // Методы для совместимости с предыдущей версией
+  setQuality(quality: string): void {
+    // Метод сохранен для совместимости
+    this.physicsWorker.setQuality(quality)
+  }
+
+  getCurrentQuality(): string {
+    // Метод сохранен для совместимости
+    return 'high'
   }
 
   private createWorldBorder(): void {
@@ -260,69 +170,12 @@ export class App extends Application {
 
     // Рисуем красную рамку по границе мира
     this.worldBorder.rect(0, 0, UNIVERSE_WIDTH, UNIVERSE_HEIGHT)
-    this.worldBorder.stroke({ color: 0xff0000, width: 5 })
+    this.worldBorder.stroke({
+      color: UNIVERSE_BORDER_COLOR,
+      width: UNIVERSE_BORDER_WIDTH,
+    })
 
     // Добавляем рамку на задний план (под планеты)
     this.stage.addChildAt(this.worldBorder, 0)
-  }
-
-  private handleCollision(
-    planet1: PlanetInfo,
-    planet2: PlanetInfo,
-    distance: number,
-  ): void {
-    // Вычисляем вектор между центрами планет
-    const dx = planet2.position.x - planet1.position.x
-    const dy = planet2.position.y - planet1.position.y
-
-    // Нормализуем вектор столкновения
-    const normalX = dx / distance
-    const normalY = dy / distance
-
-    // Вычисляем относительную скорость
-    const relativeVelX = planet2.speed.x - planet1.speed.x
-    const relativeVelY = planet2.speed.y - planet1.speed.y
-
-    // Проекция относительной скорости на нормаль столкновения
-    const velAlongNormal = relativeVelX * normalX + relativeVelY * normalY
-
-    // Если объекты уже расходятся, не обрабатываем столкновение
-    if (velAlongNormal > 0) return
-
-    // Коэффициент восстановления (0 = неупругое, 1 = упругое)
-    const restitution = 0.8
-
-    // Вычисляем импульс столкновения
-    const impulse =
-      (-(1 + restitution) * velAlongNormal) /
-      (1 / planet1.mass + 1 / planet2.mass)
-
-    // Применяем импульс к скоростям
-    const impulseX = impulse * normalX
-    const impulseY = impulse * normalY
-
-    planet1.speed.x -= impulseX / planet1.mass
-    planet1.speed.y -= impulseY / planet1.mass
-    planet2.speed.x += impulseX / planet2.mass
-    planet2.speed.y += impulseY / planet2.mass
-
-    // Разделяем объекты, чтобы они не пересекались
-    const overlap = planet1.radius + planet2.radius - distance
-    if (overlap > 0) {
-      const separationX = normalX * overlap * 0.5
-      const separationY = normalY * overlap * 0.5
-
-      planet1.position.x -= separationX
-      planet1.position.y -= separationY
-      planet2.position.x += separationX
-      planet2.position.y += separationY
-    }
-
-    // Применяем трение для постепенной остановки
-    const frictionCoeff = 0.02
-    planet1.speed.x *= 1 - frictionCoeff
-    planet1.speed.y *= 1 - frictionCoeff
-    planet2.speed.x *= 1 - frictionCoeff
-    planet2.speed.y *= 1 - frictionCoeff
   }
 }

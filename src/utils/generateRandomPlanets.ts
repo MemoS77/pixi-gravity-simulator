@@ -1,5 +1,9 @@
 import { PlanetInfo } from '../types'
-import { UNIVERSE_WIDTH, UNIVERSE_HEIGHT } from '../constants/universe'
+import {
+  UNIVERSE_WIDTH,
+  UNIVERSE_HEIGHT,
+  MAX_RANDOM_MASS,
+} from '../constants/universe'
 import { classifyBody } from './classify'
 import { calculateRadius } from '../physics'
 
@@ -13,8 +17,7 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
   const planets: PlanetInfo[] = []
 
   for (let i = 0; i < count; i++) {
-    // Случайная масса от 3 до 50
-    const mass = Math.random() * 100
+    const mass = Math.ceil(Math.random() * MAX_RANDOM_MASS)
 
     const { density, color } = classifyBody(mass)
 
@@ -29,11 +32,12 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
 
     // Случайная скорость от -3 до 3
     const speed = {
-      x: (Math.random() - 0.5) * 0,
-      y: (Math.random() - 0.5) * 0,
+      x: (Math.random() - 0.5) * 10,
+      y: (Math.random() - 0.5) * 10,
     }
 
     planets.push({
+      id: i,
       mass,
       density,
       position,

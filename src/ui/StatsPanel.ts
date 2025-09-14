@@ -4,6 +4,7 @@ export interface StatsData {
   planets: PlanetInfo[]
   zoom: number
   camera: { x: number; y: number }
+  fps?: number
 }
 
 export class StatsPanel {
@@ -12,9 +13,11 @@ export class StatsPanel {
   private maxMassElement: HTMLSpanElement
   private zoomElement: HTMLSpanElement
   private cameraElement: HTMLSpanElement
+  private fpsElement: HTMLSpanElement
 
   constructor() {
     this.container = this.createContainer()
+    this.fpsElement = this.createStatElement('FPS:', '60')
     this.objectCountElement = this.createStatElement('Объекты:', '0')
     this.maxMassElement = this.createStatElement('Макс. масса:', '0')
     this.zoomElement = this.createStatElement('Зум:', '1.00x')
@@ -75,6 +78,19 @@ export class StatsPanel {
   }
 
   public updateStats(data: StatsData): void {
+    // FPS
+    if (data.fps !== undefined) {
+      this.fpsElement.textContent = data.fps.toFixed(1)
+      // Меняем цвет в зависимости от FPS
+      if (data.fps >= 50) {
+        this.fpsElement.className = 'text-green-400 font-semibold ml-2'
+      } else if (data.fps >= 30) {
+        this.fpsElement.className = 'text-yellow-400 font-semibold ml-2'
+      } else {
+        this.fpsElement.className = 'text-red-400 font-semibold ml-2'
+      }
+    }
+
     // Количество объектов
     this.objectCountElement.textContent = data.planets.length.toString()
 
