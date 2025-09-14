@@ -7,4 +7,6 @@ export type PlanetInfo = {
   speed: { x: number; y: number }
   color: string
   graphics?: Graphics
+  radius: number
+  needUpdate: boolean
 }

@@ -6,34 +6,37 @@ import {
   calculateGravitationalForce,
   calculateRadius,
 } from '../physics'
+import { classifyBody } from '../utils/classify'
 
 export class App extends Application {
   private planets: PlanetInfo[] = []
-  private gravityConst = 1000
+  private gravityConst = 100
 
   async applyPlanets(): Promise<void> {
     this.planets.forEach((planet) => {
       if (!planet.graphics) return
       planet.graphics.position.set(planet.position.x, planet.position.y)
+      if (planet.needUpdate) {
+        planet.graphics.clear()
+        planet.graphics.circle(0, 0, planet.radius)
+        planet.graphics.fill(planet.color)
+        planet.graphics.stroke({ color: 0xffffff, width: 1 })
+      }
+      planet.needUpdate = false
     })
   }
 
   async loadPlanets(): Promise<void> {
-    this.planets = generateRandomPlanets(100)
+    this.planets = generateRandomPlanets(1000)
 
     this.planets.forEach((planet) => {
       const graphics = new Graphics()
-      const radius = calculateRadius(planet.mass, planet.density)
-
-      // Рисуем окружность с случайным цветом и белой рамкой
-      graphics.circle(0, 0, radius)
-      graphics.fill(planet.color)
-      graphics.stroke({ color: 0xffffff, width: 1 })
-
-      graphics.position.set(planet.position.x, planet.position.y)
       this.stage.addChild(graphics)
       planet.graphics = graphics
+      planet.needUpdate = true
     })
+
+    await this.applyPlanets()
   }
 
   async run(): Promise<void> {
@@ -71,7 +74,6 @@ export class App extends Application {
       ay: force.fy / this.planets[index].mass,
     }))
 
-    // ШАГ 3 и 4: Создаем новые объекты планет с обновленными свойствами
     this.planets.forEach((planet, index) => {
       const { ax, ay } = accelerations[index]
 
@@ -99,9 +101,68 @@ export class App extends Application {
       planet.position = { x: newPositionX, y: newPositionY }
     })
 
-    // ШАГ 5: Проверяем коллизии и поглощения
-    //const planetsAfterCollisions = checkCollisions(this.planets)
-    //this.planets = planetsAfterCollisions
+    // ШАГ 5: Поглощение, если приблизились как минимум на половину суммы радиусов
+    const needRemove: Map<number, boolean> = new Map()
+
+    for (let i = 0; i < this.planets.length; i++) {
+      if (needRemove.has(i)) continue
+      for (let j = i + 1; j < this.planets.length; j++) {
+        if (needRemove.has(j)) continue
+        const distance = Math.sqrt(
+          Math.pow(this.planets[i].position.x - this.planets[j].position.x, 2) +
+            Math.pow(
+              this.planets[i].position.y - this.planets[j].position.y,
+              2,
+            ),
+        )
+
+        if (distance < this.planets[i].radius + this.planets[j].radius) {
+          const middlePoint = {
+            x: (this.planets[i].position.x + this.planets[j].position.x) / 2,
+            y: (this.planets[i].position.y + this.planets[j].position.y) / 2,
+          }
+          // Склеиваем и перевычиляем радиус, переклассифицируем с новой плотностью и цветом
+          const mergedMass = this.planets[i].mass + this.planets[j].mass
+          const { color, density } = classifyBody(mergedMass)
+          const mergedRadius = calculateRadius(mergedMass, density)
+
+          // Сложить векторно скорость с учетом масс
+          const speed = {
+            x:
+              (this.planets[i].speed.x * this.planets[i].mass +
+                this.planets[j].speed.x * this.planets[j].mass) /
+              mergedMass,
+            y:
+              (this.planets[i].speed.y * this.planets[i].mass +
+                this.planets[j].speed.y * this.planets[j].mass) /
+              mergedMass,
+          }
+
+          this.planets[i].mass = mergedMass
+          this.planets[i].density = density
+          this.planets[i].color = color
+          this.planets[i].radius = mergedRadius
+          this.planets[i].position = middlePoint
+          this.planets[i].speed = speed
+          this.planets[i].needUpdate = true
+
+          console.log('merged', this.planets[i])
+
+          needRemove.set(j, true)
+        }
+      }
+    }
+
+    // Удаляем спрайты
+
+    if (needRemove.size > 0) {
+      needRemove.forEach((_, index) => {
+        this.planets[index].graphics?.destroy()
+      })
+
+      this.planets = this.planets.filter((_, index) => !needRemove.has(index))
+    }
+
     this.applyPlanets()
   }
 
