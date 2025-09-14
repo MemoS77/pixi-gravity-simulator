@@ -8,12 +8,22 @@ import {
 } from '../physics'
 import { classifyBody } from '../utils/classify'
 
+export interface AppChangeCallback {
+  (data: { planets: PlanetInfo[]; zoom: number; camera: { x: number; y: number } }): void
+}
+
 export class App extends Application {
   private planets: PlanetInfo[] = []
   private gravityConst = 1000
   private zoom = 1
   private cameraX = 0
   private cameraY = 0
+  private onChangeCallback?: AppChangeCallback
+
+  constructor(onChangeCallback?: AppChangeCallback) {
+    super()
+    this.onChangeCallback = onChangeCallback
+  }
 
   setGravityConst(gravityConst: number): void {
     this.gravityConst = gravityConst
@@ -171,6 +181,17 @@ export class App extends Application {
     }
 
     this.applyPlanets()
+    this.notifyChange()
+  }
+
+  private notifyChange(): void {
+    if (this.onChangeCallback) {
+      this.onChangeCallback({
+        planets: this.planets,
+        zoom: this.zoom,
+        camera: { x: this.cameraX, y: this.cameraY }
+      })
+    }
   }
 
   addTicker(): void {
@@ -184,18 +205,21 @@ export class App extends Application {
   setZoom(zoom: number): void {
     this.zoom = Math.max(0.1, Math.min(10, zoom)) // Ограничиваем zoom от 0.1 до 10
     this.applyCameraTransform()
+    this.notifyChange()
   }
 
   setCamera(x: number, y: number): void {
     this.cameraX = x
     this.cameraY = y
     this.applyCameraTransform()
+    this.notifyChange()
   }
 
   moveCamera(deltaX: number, deltaY: number): void {
     this.cameraX += deltaX
     this.cameraY += deltaY
     this.applyCameraTransform()
+    this.notifyChange()
   }
 
   getZoom(): number {
