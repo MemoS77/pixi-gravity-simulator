@@ -8,10 +8,13 @@ import { classifyBody } from '../utils/classify'
  * @param planet2 Вторая планета
  * @returns Расстояние между центрами планет
  */
-export function calculateDistance(planet1: PlanetInfo, planet2: PlanetInfo): number {
+export function calculateDistance(
+  planet1: PlanetInfo,
+  planet2: PlanetInfo,
+): number {
   return Math.sqrt(
     Math.pow(planet1.position.x - planet2.position.x, 2) +
-    Math.pow(planet1.position.y - planet2.position.y, 2)
+      Math.pow(planet1.position.y - planet2.position.y, 2),
   )
 }
 
@@ -21,7 +24,11 @@ export function calculateDistance(planet1: PlanetInfo, planet2: PlanetInfo): num
  * @param index1 Индекс первой планеты (остается)
  * @param index2 Индекс второй планеты (будет удалена)
  */
-export function mergePlanets(planets: PlanetInfo[], index1: number, index2: number): void {
+export function mergePlanets(
+  planets: PlanetInfo[],
+  index1: number,
+  index2: number,
+): void {
   const planet1 = planets[index1]
   const planet2 = planets[index2]
 
@@ -38,8 +45,12 @@ export function mergePlanets(planets: PlanetInfo[], index1: number, index2: numb
 
   // Сохраняем импульс: складываем векторные скорости с учетом масс
   const mergedSpeed = {
-    x: (planet1.speed.x * planet1.mass + planet2.speed.x * planet2.mass) / mergedMass,
-    y: (planet1.speed.y * planet1.mass + planet2.speed.y * planet2.mass) / mergedMass,
+    x:
+      (planet1.speed.x * planet1.mass + planet2.speed.x * planet2.mass) /
+      mergedMass,
+    y:
+      (planet1.speed.y * planet1.mass + planet2.speed.y * planet2.mass) /
+      mergedMass,
   }
 
   // Обновляем первую планету новыми параметрами
@@ -60,21 +71,22 @@ export function mergePlanets(planets: PlanetInfo[], index1: number, index2: numb
  */
 export function processCollisionsAndMergers(
   planets: PlanetInfo[],
-  handleCollision: (planet1: PlanetInfo, planet2: PlanetInfo, distance: number) => void
+  handleCollision: (
+    planet1: PlanetInfo,
+    planet2: PlanetInfo,
+    distance: number,
+  ) => void,
 ): Map<number, boolean> {
   const needRemove: Map<number, boolean> = new Map()
 
   for (let i = 0; i < planets.length; i++) {
     if (needRemove.has(i)) continue
-    
+
     for (let j = i + 1; j < planets.length; j++) {
       if (needRemove.has(j)) continue
-      
+
       const distance = calculateDistance(planets[i], planets[j])
-      const glueDistance = Math.min(
-        planets[i].radius,
-        planets[j].radius,
-      )
+      const glueDistance = Math.min(planets[i].radius, planets[j].radius)
 
       // Проверяем условие слияния
       if (distance <= glueDistance) {
@@ -82,7 +94,7 @@ export function processCollisionsAndMergers(
         needRemove.set(j, true)
       }
       // Проверяем условие столкновения
-      else if (distance < planets[i].radius + planets[j].radius) {
+      else if (distance <= planets[i].radius + planets[j].radius) {
         handleCollision(planets[i], planets[j], distance)
       }
     }
@@ -122,7 +134,6 @@ export function handlePlanetCollision(
 
   // Коэффициент восстановления (0 = неупругое, 1 = упругое)
   const restitution = 0.2
-
   // Вычисляем импульс столкновения
   const impulse =
     (-(1 + restitution) * velAlongNormal) /
@@ -137,6 +148,7 @@ export function handlePlanetCollision(
   planet2.speed.x += impulseX / planet2.mass
   planet2.speed.y += impulseY / planet2.mass
 
+  /*
   // Разделяем объекты, чтобы они не пересекались
   const overlap = planet1.radius + planet2.radius - distance
   if (overlap > 0) {
@@ -148,7 +160,7 @@ export function handlePlanetCollision(
     planet2.position.x += separationX
     planet2.position.y += separationY
   }
-
+  */
   // Применяем трение для постепенной остановки
   const frictionCoeff = 0.03
   planet1.speed.x *= 1 - frictionCoeff
