@@ -1,6 +1,7 @@
 import { PlanetInfo } from '../types'
 import { calculateRadius } from './calculateRadius'
 import { classifyBody } from '../utils/classify'
+import { MIN_DISTANCE } from '../constants/universe'
 
 /**
  * Вычисляет расстояние между двумя планетами
@@ -124,7 +125,8 @@ function optimizeProcessCollisionsAndMergers(
     if (!planet1 || !planet2) continue
 
     const distance = calculateDistance(planet1, planet2)
-    const glueDistance = Math.min(planet1.radius, planet2.radius)
+    const glueDistance =
+      Math.abs(planet1.radius - planet2.radius) * 2 + MIN_DISTANCE
 
     // Проверяем условие слияния
     if (distance <= glueDistance) {

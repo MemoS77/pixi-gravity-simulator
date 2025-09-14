@@ -32,8 +32,8 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
 
     // Случайная скорость от -3 до 3
     const speed = {
-      x: (Math.random() - 0.5) * 0,
-      y: (Math.random() - 0.5) * 0,
+      x: (Math.random() - 0.5) * 10,
+      y: (Math.random() - 0.5) * 10,
     }
 
     planets.push({

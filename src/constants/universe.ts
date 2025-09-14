@@ -5,8 +5,8 @@
 // Размеры вселенной
 export const UNIVERSE_WIDTH = 30000
 export const UNIVERSE_HEIGHT = 30000
-export const DEFAULT_PLANETS_COUNT = 5000
-export const MAX_RANDOM_MASS = 1000
+export const DEFAULT_PLANETS_COUNT = 2000
+export const MAX_RANDOM_MASS = 10000
 export const DEFAULT_GRAVITY_CONST = 5000
 
 // Параметры камеры/viewport
@@ -18,3 +18,5 @@ export const ZOOM_STEP = 0.1
 // Стиль границ вселенной
 export const UNIVERSE_BORDER_COLOR = 0x444444
 export const UNIVERSE_BORDER_WIDTH = 9
+
+export const MIN_DISTANCE = 3

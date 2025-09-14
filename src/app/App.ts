@@ -6,6 +6,7 @@ import {
   DEFAULT_PLANETS_COUNT,
   UNIVERSE_BORDER_COLOR,
   UNIVERSE_BORDER_WIDTH,
+  DEFAULT_GRAVITY_CONST,
 } from '../constants/universe'
 import { CameraManager } from './CameraManager'
 import { PhysicsWorkerManager } from '../workers/PhysicsWorkerManager'
@@ -22,7 +23,7 @@ export interface AppChangeCallback {
 
 export class App extends Application {
   private planetsMap: Map<number, PlanetInfo> = new Map<number, PlanetInfo>()
-  private gravityConst = 1000
+  private gravityConst = DEFAULT_GRAVITY_CONST
   private onChangeCallback?: AppChangeCallback
   private worldBorder?: Graphics
   private cameraManager: CameraManager

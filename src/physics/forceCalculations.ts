@@ -2,7 +2,7 @@ import { PlanetInfo } from '../types'
 import { calculateGravitationalForce } from './calculateGravitationalForce'
 import { arePlanetsMovingAway } from './motionUtils'
 
-const MAX_PLANETS_FOR_OPTIMIZE = 500
+const MAX_PLANETS_FOR_OPTIMIZE = 5000
 
 let nextPairCheckCache: [number, number][] = []
 const MIN_FORCE = 3
