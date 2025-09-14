@@ -6,7 +6,6 @@ import {
   DEFAULT_PLANETS_COUNT,
 } from '../constants/universe'
 import { CameraManager } from './CameraManager'
-import { QualityLevel } from '../physics'
 import { PhysicsWorkerManager } from '../workers/PhysicsWorkerManager'
 
 export interface AppChangeCallback {
@@ -15,7 +14,6 @@ export interface AppChangeCallback {
     zoom: number
     camera: { x: number; y: number }
     fps?: number
-    qualityLevel?: QualityLevel
   }): void
 }
 
@@ -88,13 +86,12 @@ export class App extends Application {
    */
   private handlePhysicsUpdate(data: {
     fps: number
-    qualityLevel: QualityLevel
   }): void {
     // Планеты уже обновлены в нашем Map через ссылку
     //this.applyPlanets()
     // Обновляем UI через колбэк
     this.wasUpdated = true
-    this.notifyChange(data.fps, data.qualityLevel)
+    this.notifyChange(data.fps)
   }
 
   /**
@@ -112,14 +109,13 @@ export class App extends Application {
     return this.isPaused
   }
 
-  private notifyChange(fps?: number, qualityLevel?: QualityLevel): void {
+  private notifyChange(fps?: number): void {
     if (this.onChangeCallback) {
       this.onChangeCallback({
         planets: Array.from(this.planetsMap.values()),
         zoom: this.cameraManager.getZoom(),
         camera: this.cameraManager.getCamera(),
         fps,
-        qualityLevel,
       })
     }
   }
@@ -154,14 +150,15 @@ export class App extends Application {
     return this.cameraManager.getCamera()
   }
 
-  // Методы управления качеством
-  setQuality(quality: QualityLevel): void {
+  // Методы для совместимости с предыдущей версией
+  setQuality(quality: string): void {
+    // Метод сохранен для совместимости
     this.physicsWorker.setQuality(quality)
   }
 
-  getCurrentQuality(): QualityLevel {
-    // Получаем из последнего обновления от воркера через колбэк
-    return QualityLevel.HIGH // Значение по умолчанию, будет заменено актуальным из воркера
+  getCurrentQuality(): string {
+    // Метод сохранен для совместимости
+    return 'high' 
   }
 
   private createWorldBorder(): void {

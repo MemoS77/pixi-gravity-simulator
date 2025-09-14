@@ -1,6 +1,5 @@
 import { Graphics, Container } from 'pixi.js'
 import { PlanetInfo } from '../types'
-import { QualityLevel } from '../physics'
 
 // Тип планеты в воркере (без ссылки на Graphics)
 type WorkerPlanetInfo = Omit<PlanetInfo, 'graphics'> & {
@@ -30,7 +29,7 @@ interface UpdatePauseMessage {
 
 interface SetQualityMessage {
   type: 'setQuality'
-  quality: QualityLevel
+  quality: string
 }
 
 // Типы входящих сообщений (от воркера)
@@ -38,14 +37,13 @@ interface PlanetsUpdateMessage {
   type: 'planetsUpdate'
   planets: WorkerPlanetInfo[]
   fps: number
-  qualityLevel: QualityLevel
   removedPlanetIds: number[]
   updatedPlanetIds: number[]
 }
 
 // Колбэк для обновления данных из воркера
 export interface PhysicsUpdateCallback {
-  (data: { fps: number; qualityLevel: QualityLevel }): void
+  (data: { fps: number }): void
 }
 
 export class PhysicsWorkerManager {
@@ -114,9 +112,10 @@ export class PhysicsWorkerManager {
   }
 
   /**
-   * Установка качества симуляции
+   * Установка качества симуляции (больше не используется)
    */
-  setQuality(quality: QualityLevel): void {
+  setQuality(quality: string): void {
+    // Метод оставлен для совместимости
     this.sendToWorker<SetQualityMessage>({
       type: 'setQuality',
       quality,
@@ -206,7 +205,6 @@ export class PhysicsWorkerManager {
     // Вызываем колбэк обновления только с метриками
     this.onUpdate({
       fps: message.fps,
-      qualityLevel: message.qualityLevel,
     })
   }
 

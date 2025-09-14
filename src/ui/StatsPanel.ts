@@ -1,12 +1,10 @@
 import { PlanetInfo } from '../types'
-import { QualityLevel } from '../physics'
 
 export interface StatsData {
   planets: PlanetInfo[]
   zoom: number
   camera: { x: number; y: number }
   fps?: number
-  qualityLevel?: QualityLevel
 }
 
 export class StatsPanel {
@@ -16,12 +14,10 @@ export class StatsPanel {
   private zoomElement: HTMLSpanElement
   private cameraElement: HTMLSpanElement
   private fpsElement: HTMLSpanElement
-  private qualityElement: HTMLSpanElement
 
   constructor() {
     this.container = this.createContainer()
     this.fpsElement = this.createStatElement('FPS:', '60')
-    this.qualityElement = this.createStatElement('Качество:', 'HIGH')
     this.objectCountElement = this.createStatElement('Объекты:', '0')
     this.maxMassElement = this.createStatElement('Макс. масса:', '0')
     this.zoomElement = this.createStatElement('Зум:', '1.00x')
@@ -95,28 +91,6 @@ export class StatsPanel {
       }
     }
 
-    // Уровень качества
-    if (data.qualityLevel !== undefined) {
-      this.qualityElement.textContent = this.formatQualityLevel(data.qualityLevel)
-      // Меняем цвет в зависимости от уровня качества
-      switch (data.qualityLevel) {
-        case QualityLevel.LOW:
-          this.qualityElement.className = 'text-red-400 font-semibold ml-2'
-          break
-        case QualityLevel.MEDIUM:
-          this.qualityElement.className = 'text-yellow-400 font-semibold ml-2'
-          break
-        case QualityLevel.HIGH:
-          this.qualityElement.className = 'text-green-400 font-semibold ml-2'
-          break
-        case QualityLevel.ULTRA:
-          this.qualityElement.className = 'text-blue-400 font-semibold ml-2'
-          break
-        default:
-          this.qualityElement.className = 'text-white font-semibold ml-2'
-      }
-    }
-
     // Количество объектов
     this.objectCountElement.textContent = data.planets.length.toString()
 
@@ -143,21 +117,6 @@ export class StatsPanel {
       return `${(mass / 1000).toFixed(1)}K`
     } else {
       return mass.toFixed(0)
-    }
-  }
-
-  private formatQualityLevel(quality: QualityLevel): string {
-    switch (quality) {
-      case QualityLevel.LOW:
-        return 'НИЗКОЕ'
-      case QualityLevel.MEDIUM:
-        return 'СРЕДНЕЕ'
-      case QualityLevel.HIGH:
-        return 'ВЫСОКОЕ'
-      case QualityLevel.ULTRA:
-        return 'УЛЬТРА'
-      default:
-        return String(quality).toUpperCase()
     }
   }
 

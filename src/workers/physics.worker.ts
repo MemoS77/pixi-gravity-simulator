@@ -2,8 +2,7 @@ import {
   updatePlanetPositions,
   processCollisionsAndMergers,
   handlePlanetCollision,
-  AdaptiveQualityManager,
-  QualityLevel,
+  calculateAllGravitationalForces,
 } from '../physics'
 import { PlanetInfo } from '../types'
 import { PerformanceMonitor } from '../utils/performanceMonitor'
@@ -20,7 +19,6 @@ interface PhysicsWorkerState {
   paused: boolean
   lastFrameTime: number
   performanceMonitor: PerformanceMonitor
-  qualityManager: AdaptiveQualityManager
   nextPlanetId: number
 }
 
@@ -45,9 +43,10 @@ interface UpdatePauseMessage {
   paused: boolean
 }
 
+// Качество больше не используется
 interface SetQualityMessage {
   type: 'setQuality'
-  quality: QualityLevel
+  quality: string
 }
 
 type WorkerIncomingMessage =
@@ -62,7 +61,6 @@ interface WorkerOutgoingMessage {
   type: 'planetsUpdate'
   planets: WorkerPlanetInfo[]
   fps: number
-  qualityLevel: QualityLevel
   removedPlanetIds: number[] // Список id удаленных планет
   updatedPlanetIds: number[] // Список id измененных планет
 }
@@ -74,7 +72,6 @@ const state: PhysicsWorkerState = {
   paused: false,
   lastFrameTime: 0,
   performanceMonitor: new PerformanceMonitor(),
-  qualityManager: new AdaptiveQualityManager(null as any), // Инициализируем позже
   nextPlanetId: 1,
 }
 
@@ -82,7 +79,6 @@ const state: PhysicsWorkerState = {
 function init(gravityConst: number): void {
   state.gravityConst = gravityConst
   state.performanceMonitor = new PerformanceMonitor()
-  state.qualityManager = new AdaptiveQualityManager(state.performanceMonitor)
 }
 
 // Генерация планет
@@ -107,11 +103,13 @@ function updatePhysics(deltaTime: number): {
   state.performanceMonitor.startFrame()
   state.performanceMonitor.startPhysics()
 
-  // ШАГ 1: Рассчитываем все гравитационные силы (адаптивное качество)
-  const forces = state.qualityManager.calculateForces(
+  // ШАГ 1: Рассчитываем все гравитационные силы
+  state.performanceMonitor.startPhysics()
+  const forces = calculateAllGravitationalForces(
     state.planets,
     state.gravityConst,
   )
+  state.performanceMonitor.endPhysics()
 
   // ШАГ 2: Обновляем позиции и скорости планет
   updatePlanetPositions(state.planets, forces, deltaTime)
@@ -146,8 +144,7 @@ function updatePhysics(deltaTime: number): {
   state.performanceMonitor.endRender() // В воркере нет рендеринга, но вызываем для корректности
   state.performanceMonitor.endFrame(state.planets.length, 0)
 
-  // Обновляем качество на основе производительности
-  state.qualityManager.updateQuality()
+  // Качество не используется больше
 
   return {
     removedPlanetIds,
@@ -178,7 +175,7 @@ function startUpdateLoop(): void {
       type: 'planetsUpdate',
       planets: state.planets,
       fps: performanceStats.avgFps,
-      qualityLevel: state.qualityManager.getCurrentQuality(),
+
       removedPlanetIds,
       updatedPlanetIds,
     }
@@ -226,8 +223,8 @@ self.addEventListener(
         break
 
       case 'setQuality':
-        state.qualityManager.setQuality(message.quality)
-        break
+      // Больше не используется
+      break
     }
   },
 )
