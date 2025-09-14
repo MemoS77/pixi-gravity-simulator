@@ -4,24 +4,26 @@ import { arePlanetsMovingAway } from './motionUtils'
 
 const MAX_PLANETS_FOR_OPTIMIZE = 500
 
+let nextPairCheckCache: [number, number][] = []
+const MIN_FORCE = 5
+const STEPS_TO_USE_PAIR_CHECK = 100
+let checkStep = 0
+let cachedForces: Map<number, Force> = new Map()
+
 type Force = {
   fx: number
   fy: number
 }
 
-export function calcForces(planets: Map<number, PlanetInfo>, gravityConst: number): Map<number, Force> {
+export function calcForces(
+  planets: Map<number, PlanetInfo>,
+  gravityConst: number,
+): Map<number, Force> {
   if (planets.size > MAX_PLANETS_FOR_OPTIMIZE) {
     return optimizeCalcForces(planets, gravityConst)
   }
   return calculateAllGravitationalForces(planets, gravityConst)
 }
-
-let nextPairCheckCache: [number, number][] = []
-const MIN_FORCE = 5
-const STEPS_TO_USE_PAIR_CHECK = 100
-let checkStep = 0
-let lastPlanetsSize = 0
-let cachedForces: Map<number, Force> = new Map()
 
 function optimizeCalcForces(
   planets: Map<number, PlanetInfo>,
@@ -29,19 +31,15 @@ function optimizeCalcForces(
 ): Map<number, Force> {
   const forces = new Map<number, Force>()
   const planetIds = Array.from(planets.keys())
-  
+
   // Инициализируем силы для всех планет
   for (const id of planetIds) {
     forces.set(id, { fx: 0, fy: 0 })
   }
 
-  if (
-    checkStep > STEPS_TO_USE_PAIR_CHECK ||
-    lastPlanetsSize !== planets.size
-  ) {
+  if (checkStep > STEPS_TO_USE_PAIR_CHECK) {
     nextPairCheckCache = []
     checkStep = 0
-    lastPlanetsSize = planets.size
 
     // Сохраним сумму сил для пар планет, которые не будем считать
     cachedForces.clear()
@@ -56,7 +54,7 @@ function optimizeCalcForces(
         const id2 = planetIds[j]
         const planet1 = planets.get(id1)!
         const planet2 = planets.get(id2)!
-        
+
         const force = calculateGravitationalForce(
           planet1,
           planet2,
@@ -92,7 +90,6 @@ function optimizeCalcForces(
     console.log(
       'nextPairCheckCache',
       nextPairCheckCache.length,
-      lastPlanetsSize,
       cachedForces.size,
     )
   } else {
@@ -102,16 +99,12 @@ function optimizeCalcForces(
       const [id1, id2] = nextPairCheckCache[ti]
       const planet1 = planets.get(id1)
       const planet2 = planets.get(id2)
-      
+
       // Проверяем, что планеты еще существуют
       if (!planet1 || !planet2) continue
 
-      const force = calculateGravitationalForce(
-        planet1,
-        planet2,
-        gravityConst,
-      )
-      
+      const force = calculateGravitationalForce(planet1, planet2, gravityConst)
+
       // Применяем силу к первой планете (притяжение ко второй)
       const force1 = forces.get(id1)!
       const force2 = forces.get(id2)!
@@ -141,7 +134,7 @@ function calculateAllGravitationalForces(
 ): Map<number, Force> {
   const forces = new Map<number, Force>()
   const planetIds = Array.from(planets.keys())
-  
+
   // Инициализируем силы для всех планет
   for (const id of planetIds) {
     forces.set(id, { fx: 0, fy: 0 })
@@ -154,13 +147,9 @@ function calculateAllGravitationalForces(
       const id2 = planetIds[j]
       const planet1 = planets.get(id1)!
       const planet2 = planets.get(id2)!
-      
-      const force = calculateGravitationalForce(
-        planet1,
-        planet2,
-        gravityConst,
-      )
-      
+
+      const force = calculateGravitationalForce(planet1, planet2, gravityConst)
+
       // Применяем силу к первой планете (притяжение ко второй)
       const force1 = forces.get(id1)!
       const force2 = forces.get(id2)!

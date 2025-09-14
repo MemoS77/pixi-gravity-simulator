@@ -68,7 +68,6 @@ const MIN_DISTANCE_FOR_PAIR_CHECK = 1000
 const MAX_PLANETS_FOR_OPTIMIZE = 10000
 
 let checkStep = 0
-let lastPlanetsLength = 0
 let nextPairCheckCache: [number, number][] = []
 
 function optimizeProcessCollisionsAndMergers(
@@ -84,11 +83,9 @@ function optimizeProcessCollisionsAndMergers(
 
   if (
     nextPairCheckCache.length === 0 ||
-    checkStep > STEPS_FOR_FULL_COLLISIONS_CHECK ||
-    lastPlanetsLength !== planets.size
+    checkStep > STEPS_FOR_FULL_COLLISIONS_CHECK
   ) {
     checkStep = 0
-    lastPlanetsLength = planets.size
 
     nextPairCheckCache = []
 
