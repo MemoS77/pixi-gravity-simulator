@@ -7,10 +7,37 @@ import {
   calculateRadius,
 } from '../physics'
 import { classifyBody } from '../utils/classify'
+import {
+  UNIVERSE_WIDTH,
+  UNIVERSE_HEIGHT,
+  DEFAULT_PLANETS_COUNT,
+} from '../constants/universe'
+
+export interface AppChangeCallback {
+  (data: {
+    planets: PlanetInfo[]
+    zoom: number
+    camera: { x: number; y: number }
+  }): void
+}
 
 export class App extends Application {
   private planets: PlanetInfo[] = []
-  private gravityConst = 100
+  private gravityConst = 1000
+  private zoom = 1
+  private cameraX = 0
+  private cameraY = 0
+  private onChangeCallback?: AppChangeCallback
+  private worldBorder?: Graphics
+
+  constructor(onChangeCallback?: AppChangeCallback) {
+    super()
+    this.onChangeCallback = onChangeCallback
+  }
+
+  setGravityConst(gravityConst: number): void {
+    this.gravityConst = gravityConst
+  }
 
   async applyPlanets(): Promise<void> {
     this.planets.forEach((planet) => {
@@ -27,7 +54,7 @@ export class App extends Application {
   }
 
   async loadPlanets(): Promise<void> {
-    this.planets = generateRandomPlanets(1000)
+    this.planets = generateRandomPlanets(DEFAULT_PLANETS_COUNT)
 
     this.planets.forEach((planet) => {
       const graphics = new Graphics()
@@ -40,7 +67,7 @@ export class App extends Application {
   }
 
   async run(): Promise<void> {
-    console.log('run')
+    this.createWorldBorder()
     await this.loadPlanets()
     this.addTicker()
   }
@@ -101,7 +128,7 @@ export class App extends Application {
       planet.position = { x: newPositionX, y: newPositionY }
     })
 
-    // ШАГ 5: Поглощение, если приблизились как минимум на половину суммы радиусов
+    // ШАГ 5: Поглощение, если приблизились слишком близко
     const needRemove: Map<number, boolean> = new Map()
 
     for (let i = 0; i < this.planets.length; i++) {
@@ -116,7 +143,12 @@ export class App extends Application {
             ),
         )
 
-        if (distance < this.planets[i].radius + this.planets[j].radius) {
+        const glueDistance = Math.min(
+          this.planets[i].radius,
+          this.planets[j].radius,
+        )
+
+        if (distance <= glueDistance) {
           const middlePoint = {
             x: (this.planets[i].position.x + this.planets[j].position.x) / 2,
             y: (this.planets[i].position.y + this.planets[j].position.y) / 2,
@@ -145,10 +177,12 @@ export class App extends Application {
           this.planets[i].position = middlePoint
           this.planets[i].speed = speed
           this.planets[i].needUpdate = true
-
-          console.log('merged', this.planets[i])
-
           needRemove.set(j, true)
+        }
+
+        // Объекты касаются друг друга - реализуем столкновение
+        else if (distance < this.planets[i].radius + this.planets[j].radius) {
+          this.handleCollision(this.planets[i], this.planets[j], distance)
         }
       }
     }
@@ -164,6 +198,17 @@ export class App extends Application {
     }
 
     this.applyPlanets()
+    this.notifyChange()
+  }
+
+  private notifyChange(): void {
+    if (this.onChangeCallback) {
+      this.onChangeCallback({
+        planets: this.planets,
+        zoom: this.zoom,
+        camera: { x: this.cameraX, y: this.cameraY },
+      })
+    }
   }
 
   addTicker(): void {
@@ -171,5 +216,113 @@ export class App extends Application {
       const deltaTime = time.deltaTime * 0.016
       this.updatePlanets(deltaTime)
     })
+  }
+
+  // Методы управления камерой
+  setZoom(zoom: number): void {
+    this.zoom = Math.max(0.1, Math.min(10, zoom)) // Ограничиваем zoom от 0.1 до 10
+    this.applyCameraTransform()
+    this.notifyChange()
+  }
+
+  setCamera(x: number, y: number): void {
+    this.cameraX = x
+    this.cameraY = y
+    this.applyCameraTransform()
+    this.notifyChange()
+  }
+
+  moveCamera(deltaX: number, deltaY: number): void {
+    this.cameraX += deltaX
+    this.cameraY += deltaY
+    this.applyCameraTransform()
+    this.notifyChange()
+  }
+
+  getZoom(): number {
+    return this.zoom
+  }
+
+  getCamera(): { x: number; y: number } {
+    return { x: this.cameraX, y: this.cameraY }
+  }
+
+  private applyCameraTransform(): void {
+    this.stage.scale.set(this.zoom)
+    this.stage.position.set(
+      -this.cameraX * this.zoom,
+      -this.cameraY * this.zoom,
+    )
+  }
+
+  private createWorldBorder(): void {
+    this.worldBorder = new Graphics()
+
+    // Рисуем красную рамку по границе мира
+    this.worldBorder.rect(0, 0, UNIVERSE_WIDTH, UNIVERSE_HEIGHT)
+    this.worldBorder.stroke({ color: 0xff0000, width: 5 })
+
+    // Добавляем рамку на задний план (под планеты)
+    this.stage.addChildAt(this.worldBorder, 0)
+  }
+
+  private handleCollision(
+    planet1: PlanetInfo,
+    planet2: PlanetInfo,
+    distance: number,
+  ): void {
+    // Вычисляем вектор между центрами планет
+    const dx = planet2.position.x - planet1.position.x
+    const dy = planet2.position.y - planet1.position.y
+
+    // Нормализуем вектор столкновения
+    const normalX = dx / distance
+    const normalY = dy / distance
+
+    // Вычисляем относительную скорость
+    const relativeVelX = planet2.speed.x - planet1.speed.x
+    const relativeVelY = planet2.speed.y - planet1.speed.y
+
+    // Проекция относительной скорости на нормаль столкновения
+    const velAlongNormal = relativeVelX * normalX + relativeVelY * normalY
+
+    // Если объекты уже расходятся, не обрабатываем столкновение
+    if (velAlongNormal > 0) return
+
+    // Коэффициент восстановления (0 = неупругое, 1 = упругое)
+    const restitution = 0.8
+
+    // Вычисляем импульс столкновения
+    const impulse =
+      (-(1 + restitution) * velAlongNormal) /
+      (1 / planet1.mass + 1 / planet2.mass)
+
+    // Применяем импульс к скоростям
+    const impulseX = impulse * normalX
+    const impulseY = impulse * normalY
+
+    planet1.speed.x -= impulseX / planet1.mass
+    planet1.speed.y -= impulseY / planet1.mass
+    planet2.speed.x += impulseX / planet2.mass
+    planet2.speed.y += impulseY / planet2.mass
+
+    // Разделяем объекты, чтобы они не пересекались
+    const overlap = planet1.radius + planet2.radius - distance
+    if (overlap > 0) {
+      const separationX = normalX * overlap * 0.5
+      const separationY = normalY * overlap * 0.5
+
+      planet1.position.x -= separationX
+      planet1.position.y -= separationY
+      planet2.position.x += separationX
+      planet2.position.y += separationY
+    }
+
+    // Применяем трение для постепенной остановки
+    const frictionCoeff = 0.02
+    planet1.speed.x *= 1 - frictionCoeff
+    planet1.speed.y *= 1 - frictionCoeff
+    planet2.speed.x *= 1 - frictionCoeff
+    planet2.speed.y *= 1 - frictionCoeff
   }
 }
