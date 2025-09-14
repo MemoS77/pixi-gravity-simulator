@@ -1,0 +1,158 @@
+import { PlanetInfo } from '../types'
+import { calculateRadius } from './calculateRadius'
+import { classifyBody } from '../utils/classify'
+
+/**
+ * Вычисляет расстояние между двумя планетами
+ * @param planet1 Первая планета
+ * @param planet2 Вторая планета
+ * @returns Расстояние между центрами планет
+ */
+export function calculateDistance(planet1: PlanetInfo, planet2: PlanetInfo): number {
+  return Math.sqrt(
+    Math.pow(planet1.position.x - planet2.position.x, 2) +
+    Math.pow(planet1.position.y - planet2.position.y, 2)
+  )
+}
+
+/**
+ * Выполняет слияние двух планет
+ * @param planets Массив планет
+ * @param index1 Индекс первой планеты (остается)
+ * @param index2 Индекс второй планеты (будет удалена)
+ */
+export function mergePlanets(planets: PlanetInfo[], index1: number, index2: number): void {
+  const planet1 = planets[index1]
+  const planet2 = planets[index2]
+
+  // Вычисляем новые параметры объединенной планеты
+  const mergedMass = planet1.mass + planet2.mass
+  const { color, density } = classifyBody(mergedMass)
+  const mergedRadius = calculateRadius(mergedMass, density)
+
+  // Вычисляем центр масс
+  const middlePoint = {
+    x: (planet1.position.x + planet2.position.x) / 2,
+    y: (planet1.position.y + planet2.position.y) / 2,
+  }
+
+  // Сохраняем импульс: складываем векторные скорости с учетом масс
+  const mergedSpeed = {
+    x: (planet1.speed.x * planet1.mass + planet2.speed.x * planet2.mass) / mergedMass,
+    y: (planet1.speed.y * planet1.mass + planet2.speed.y * planet2.mass) / mergedMass,
+  }
+
+  // Обновляем первую планету новыми параметрами
+  planet1.mass = mergedMass
+  planet1.density = density
+  planet1.color = color
+  planet1.radius = mergedRadius
+  planet1.position = middlePoint
+  planet1.speed = mergedSpeed
+  planet1.needUpdate = true
+}
+
+/**
+ * Обрабатывает столкновения и слияния между планетами
+ * @param planets Массив планет
+ * @param handleCollision Функция для обработки столкновений
+ * @returns Map с индексами планет, которые нужно удалить
+ */
+export function processCollisionsAndMergers(
+  planets: PlanetInfo[],
+  handleCollision: (planet1: PlanetInfo, planet2: PlanetInfo, distance: number) => void
+): Map<number, boolean> {
+  const needRemove: Map<number, boolean> = new Map()
+
+  for (let i = 0; i < planets.length; i++) {
+    if (needRemove.has(i)) continue
+    
+    for (let j = i + 1; j < planets.length; j++) {
+      if (needRemove.has(j)) continue
+      
+      const distance = calculateDistance(planets[i], planets[j])
+      const glueDistance = Math.min(
+        planets[i].radius,
+        planets[j].radius,
+      )
+
+      // Проверяем условие слияния
+      if (distance <= glueDistance) {
+        mergePlanets(planets, i, j)
+        needRemove.set(j, true)
+      }
+      // Проверяем условие столкновения
+      else if (distance < planets[i].radius + planets[j].radius) {
+        handleCollision(planets[i], planets[j], distance)
+      }
+    }
+  }
+
+  return needRemove
+}
+
+/**
+ * Обрабатывает физически корректное столкновение между двумя планетами
+ * @param planet1 Первая планета
+ * @param planet2 Вторая планета
+ * @param distance Расстояние между планетами
+ */
+export function handlePlanetCollision(
+  planet1: PlanetInfo,
+  planet2: PlanetInfo,
+  distance: number,
+): void {
+  // Вычисляем вектор между центрами планет
+  const dx = planet2.position.x - planet1.position.x
+  const dy = planet2.position.y - planet1.position.y
+
+  // Нормализуем вектор столкновения
+  const normalX = dx / distance
+  const normalY = dy / distance
+
+  // Вычисляем относительную скорость
+  const relativeVelX = planet2.speed.x - planet1.speed.x
+  const relativeVelY = planet2.speed.y - planet1.speed.y
+
+  // Проекция относительной скорости на нормаль столкновения
+  const velAlongNormal = relativeVelX * normalX + relativeVelY * normalY
+
+  // Если объекты уже расходятся, не обрабатываем столкновение
+  if (velAlongNormal > 0) return
+
+  // Коэффициент восстановления (0 = неупругое, 1 = упругое)
+  const restitution = 0.2
+
+  // Вычисляем импульс столкновения
+  const impulse =
+    (-(1 + restitution) * velAlongNormal) /
+    (1 / planet1.mass + 1 / planet2.mass)
+
+  // Применяем импульс к скоростям
+  const impulseX = impulse * normalX
+  const impulseY = impulse * normalY
+
+  planet1.speed.x -= impulseX / planet1.mass
+  planet1.speed.y -= impulseY / planet1.mass
+  planet2.speed.x += impulseX / planet2.mass
+  planet2.speed.y += impulseY / planet2.mass
+
+  // Разделяем объекты, чтобы они не пересекались
+  const overlap = planet1.radius + planet2.radius - distance
+  if (overlap > 0) {
+    const separationX = normalX * overlap * 0.5
+    const separationY = normalY * overlap * 0.5
+
+    planet1.position.x -= separationX
+    planet1.position.y -= separationY
+    planet2.position.x += separationX
+    planet2.position.y += separationY
+  }
+
+  // Применяем трение для постепенной остановки
+  const frictionCoeff = 0.03
+  planet1.speed.x *= 1 - frictionCoeff
+  planet1.speed.y *= 1 - frictionCoeff
+  planet2.speed.x *= 1 - frictionCoeff
+  planet2.speed.y *= 1 - frictionCoeff
+}
