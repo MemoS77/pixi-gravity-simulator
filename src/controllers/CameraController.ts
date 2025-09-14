@@ -40,11 +40,35 @@ export class CameraController {
   private handleWheel(event: WheelEvent): void {
     event.preventDefault()
     
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1
+    // Более плавный зум (меньший шаг)
+    const zoomFactor = event.deltaY > 0 ? 0.95 : 1.05
     const currentZoom = this.callbacks.getCurrentZoom()
     const newZoom = currentZoom * zoomFactor
     
+    // Получаем позицию курсора относительно canvas
+    const rect = this.element.getBoundingClientRect()
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+    
+    // Получаем текущую позицию камеры
+    const currentCamera = this.callbacks.getCurrentCamera()
+    
+    // Вычисляем мировые координаты точки под курсором до зума
+    const worldX = (mouseX / currentZoom) + currentCamera.x
+    const worldY = (mouseY / currentZoom) + currentCamera.y
+    
+    // Применяем новый зум
     this.callbacks.onZoomChange(newZoom)
+    
+    // Вычисляем новые мировые координаты той же точки после зума
+    const newWorldX = (mouseX / newZoom) + currentCamera.x
+    const newWorldY = (mouseY / newZoom) + currentCamera.y
+    
+    // Сдвигаем камеру так, чтобы точка под курсором осталась на месте
+    const deltaX = worldX - newWorldX
+    const deltaY = worldY - newWorldY
+    
+    this.callbacks.onCameraMove(deltaX, deltaY)
   }
 
   private handleMouseDown(event: MouseEvent): void {
@@ -113,7 +137,30 @@ export class CameraController {
         const currentZoom = this.callbacks.getCurrentZoom()
         const newZoom = currentZoom * zoomFactor
         
+        // Получаем центр между двумя пальцами
+        const rect = this.element.getBoundingClientRect()
+        const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2 - rect.left
+        const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2 - rect.top
+        
+        // Получаем текущую позицию камеры
+        const currentCamera = this.callbacks.getCurrentCamera()
+        
+        // Вычисляем мировые координаты центра жеста до зума
+        const worldX = (centerX / currentZoom) + currentCamera.x
+        const worldY = (centerY / currentZoom) + currentCamera.y
+        
+        // Применяем новый зум
         this.callbacks.onZoomChange(newZoom)
+        
+        // Вычисляем новые мировые координаты того же центра после зума
+        const newWorldX = (centerX / newZoom) + currentCamera.x
+        const newWorldY = (centerY / newZoom) + currentCamera.y
+        
+        // Сдвигаем камеру так, чтобы центр жеста остался на месте
+        const deltaX = worldX - newWorldX
+        const deltaY = worldY - newWorldY
+        
+        this.callbacks.onCameraMove(deltaX, deltaY)
       }
       
       this.lastPinchDistance = currentDistance
