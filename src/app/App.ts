@@ -1,20 +1,13 @@
 import { Application, Graphics } from 'pixi.js'
 import { PlanetInfo } from '../types'
-import { generateRandomPlanets } from '../utils/generateRandomPlanets'
-import {
-  updatePlanetPositions,
-  processCollisionsAndMergers,
-  handlePlanetCollision,
-  AdaptiveQualityManager,
-  QualityLevel,
-} from '../physics'
 import {
   UNIVERSE_WIDTH,
   UNIVERSE_HEIGHT,
   DEFAULT_PLANETS_COUNT,
 } from '../constants/universe'
 import { CameraManager } from './CameraManager'
-import { PerformanceMonitor } from '../utils/performanceMonitor'
+import { QualityLevel } from '../physics'
+import { PhysicsWorkerManager } from '../workers/PhysicsWorkerManager'
 
 export interface AppChangeCallback {
   (data: {
@@ -27,13 +20,13 @@ export interface AppChangeCallback {
 }
 
 export class App extends Application {
-  private planets: PlanetInfo[] = []
+  private planetsMap: Map<number, PlanetInfo> = new Map<number, PlanetInfo>()
   private gravityConst = 1000
   private onChangeCallback?: AppChangeCallback
   private worldBorder?: Graphics
   private cameraManager: CameraManager
-  private performanceMonitor: PerformanceMonitor
-  private qualityManager: AdaptiveQualityManager
+  private physicsWorker: PhysicsWorkerManager
+  private isPaused: boolean = false
 
   constructor(onChangeCallback?: AppChangeCallback) {
     super()
@@ -41,16 +34,18 @@ export class App extends Application {
     this.cameraManager = new CameraManager(this.stage, () =>
       this.notifyChange(),
     )
-    this.performanceMonitor = new PerformanceMonitor()
-    this.qualityManager = new AdaptiveQualityManager(this.performanceMonitor)
+    
+    // Создаем менеджер физического воркера и передаем ссылку на Map
+    this.physicsWorker = new PhysicsWorkerManager(this.stage, this.planetsMap, this.handlePhysicsUpdate.bind(this))
   }
 
   setGravityConst(gravityConst: number): void {
     this.gravityConst = gravityConst
+    this.physicsWorker.setGravityConst(gravityConst)
   }
 
   applyPlanets(): void {
-    this.planets.forEach((planet) => {
+    this.planetsMap.forEach((planet) => {
       if (!planet.graphics) return
       planet.graphics.position.set(planet.position.x, planet.position.y)
       if (planet.needUpdate) {
@@ -64,105 +59,67 @@ export class App extends Application {
   }
 
   loadPlanets(planetsCount: number): void {
-    this.planets = generateRandomPlanets(planetsCount)
-
-    this.planets.forEach((planet) => {
-      const graphics = new Graphics()
-      this.stage.addChild(graphics)
-      planet.graphics = graphics
-      planet.needUpdate = true
-    })
-
-    this.applyPlanets()
+    // Генерируем планеты в воркере
+    this.physicsWorker.generatePlanets(planetsCount)
   }
 
   restart(planetsCount: number): void {
-    this.planets = []
+    this.planetsMap.clear()
     this.stage.removeChildren()
     this.createWorldBorder()
     this.loadPlanets(planetsCount)
   }
 
   async run(): Promise<void> {
+    // Инициализируем воркер
+    this.physicsWorker.init(this.gravityConst)
+    
     this.restart(DEFAULT_PLANETS_COUNT)
     this.addTicker()
   }
 
-  updatePlanets(deltaTime: number): void {
-    // Мониторинг производительности
-    this.performanceMonitor.startFrame()
-    this.performanceMonitor.startPhysics()
-
-    // ШАГ 1: Рассчитываем все гравитационные силы (адаптивное качество)
-    const forces = this.qualityManager.calculateForces(
-      this.planets,
-      this.gravityConst,
-    )
-
-    // ШАГ 2: Обновляем позиции и скорости планет
-    updatePlanetPositions(this.planets, forces, deltaTime)
-
-    // ШАГ 3: Обрабатываем столкновения и слияния
-    const planetsToRemove = processCollisionsAndMergers(
-      this.planets,
-      handlePlanetCollision,
-    )
-
-    // ШАГ 4: Удаляем поглощенные планеты
-    this.removePlanets(planetsToRemove)
-
-    // Завершаем измерение физики
-    this.performanceMonitor.endPhysics()
-
-    // ШАГ 5: Применяем изменения и уведомляем об обновлении
-    this.performanceMonitor.startRender()
+  /**
+   * Обработка обновления физики от воркера
+   */
+  private handlePhysicsUpdate(data: { fps: number, qualityLevel: QualityLevel }): void {
+    // Планеты уже обновлены в нашем Map через ссылку
     this.applyPlanets()
-    this.performanceMonitor.endRender()
-
-    // Завершаем измерение кадра
-    this.performanceMonitor.endFrame(this.planets.length, 0)
-
-    // Обновляем качество на основе производительности
-    this.qualityManager.updateQuality()
-
-    this.notifyChange()
+    
+    // Обновляем UI через колбэк
+    this.notifyChange(data.fps, data.qualityLevel)
   }
 
   /**
-   * Удаляет планеты из массива и уничтожает их графические объекты
-   * @param planetsToRemove Map с индексами планет для удаления
+   * Пауза/возобновление симуляции
    */
-  private removePlanets(planetsToRemove: Map<number, boolean>): void {
-    if (planetsToRemove.size > 0) {
-      // Уничтожаем графические объекты
-      planetsToRemove.forEach((_, index) => {
-        this.planets[index].graphics?.destroy()
-      })
-
-      // Удаляем планеты из массива
-      this.planets = this.planets.filter(
-        (_, index) => !planetsToRemove.has(index),
-      )
-    }
+  togglePause(): void {
+    this.isPaused = !this.isPaused
+    this.physicsWorker.setPaused(this.isPaused)
+  }
+  
+  /**
+   * Проверка статуса паузы
+   */
+  getPauseStatus(): boolean {
+    return this.isPaused
   }
 
-  private notifyChange(): void {
+  private notifyChange(fps?: number, qualityLevel?: QualityLevel): void {
     if (this.onChangeCallback) {
-      const performanceStats = this.performanceMonitor.getAverageStats()
       this.onChangeCallback({
-        planets: this.planets,
+        planets: Array.from(this.planetsMap.values()),
         zoom: this.cameraManager.getZoom(),
         camera: this.cameraManager.getCamera(),
-        fps: performanceStats.avgFps,
-        qualityLevel: this.qualityManager.getCurrentQuality(),
+        fps,
+        qualityLevel,
       })
     }
   }
 
   addTicker(): void {
-    this.ticker.add((time) => {
-      const deltaTime = time.deltaTime * 0.016
-      this.updatePlanets(deltaTime)
+    this.ticker.add(() => {
+      // Только синхронизация графики с данными из воркера
+      this.applyPlanets()
     })
   }
 
@@ -189,15 +146,12 @@ export class App extends Application {
 
   // Методы управления качеством
   setQuality(quality: QualityLevel): void {
-    this.qualityManager.setQuality(quality)
+    this.physicsWorker.setQuality(quality)
   }
 
   getCurrentQuality(): QualityLevel {
-    return this.qualityManager.getCurrentQuality()
-  }
-
-  getPerformanceStats() {
-    return this.performanceMonitor.getAverageStats()
+    // Получаем из последнего обновления от воркера через колбэк
+    return QualityLevel.HIGH // Значение по умолчанию, будет заменено актуальным из воркера
   }
 
   private createWorldBorder(): void {

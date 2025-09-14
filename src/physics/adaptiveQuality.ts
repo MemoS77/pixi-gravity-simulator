@@ -82,6 +82,8 @@ export class AdaptiveQualityManager {
       return planets.map(() => ({ fx: 0, fy: 0 }))
     }
 
+    //this.currentQuality = QualityLevel.HIGH
+
     // Выбираем алгоритм в зависимости от уровня качества
     switch (this.currentQuality) {
       case QualityLevel.LOW:
