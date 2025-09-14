@@ -152,7 +152,6 @@ export class PhysicsWorkerManager {
    * Обработка обновлений планет из воркера
    */
   private handlePlanetsUpdate(message: PlanetsUpdateMessage): void {
-    console.log(message)
     // Удаление планет, которые были поглощены
     message.removedPlanetIds.forEach((id) => {
       const planet = this.planetsMap.get(id)

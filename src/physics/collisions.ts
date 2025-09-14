@@ -63,9 +63,9 @@ export function mergePlanets(
   planet1.needUpdate = true
 }
 
-const STEPS_FOR_FULL_COLLISIONS_CHECK = 50
+const STEPS_FOR_FULL_COLLISIONS_CHECK = 30
 const MIN_DISTANCE_FOR_PAIR_CHECK = 1000
-const MAX_PLANETS_FOR_OPTIMIZE = 10000
+const MAX_PLANETS_FOR_OPTIMIZE = 500
 
 let checkStep = 0
 let nextPairCheckCache: [number, number][] = []
@@ -83,67 +83,58 @@ function optimizeProcessCollisionsAndMergers(
 
   if (
     nextPairCheckCache.length === 0 ||
-    checkStep > STEPS_FOR_FULL_COLLISIONS_CHECK
+    checkStep >= STEPS_FOR_FULL_COLLISIONS_CHECK
   ) {
     checkStep = 0
-
     nextPairCheckCache = []
 
+    // Составляем список пар для проверки
     for (let i = 0; i < planetIds.length; i++) {
       const id1 = planetIds[i]
-      if (needRemove.has(id1)) continue
-      const planet1 = planets.get(id1)!
+      if (needRemove.get(id1)) continue
+      const planet1 = planets.get(id1)
+      if (!planet1) continue
 
       for (let j = i + 1; j < planetIds.length; j++) {
         const id2 = planetIds[j]
-        if (needRemove.has(id2)) continue
-        const planet2 = planets.get(id2)!
+        const planet2 = planets.get(id2)
+
+        if (!planet2) continue
 
         const distance = calculateDistance(planet1, planet2)
-        const glueDistance = Math.min(planet1.radius, planet2.radius)
 
-        // Проверяем условие слияния
-        if (distance <= glueDistance) {
-          mergePlanets(planets, id1, id2)
-          needRemove.set(id2, true)
-        }
-        // Проверяем условие столкновения
-        else if (distance <= planet1.radius + planet2.radius) {
-          handleCollision(planet1, planet2, distance)
-        } else {
-          if (distance < MIN_DISTANCE_FOR_PAIR_CHECK) {
-            nextPairCheckCache.push([id1, id2])
-          }
+        if (distance < MIN_DISTANCE_FOR_PAIR_CHECK) {
+          nextPairCheckCache.push([id1, id2])
         }
       }
     }
+    //console.log('nextPair Size', nextPairCheckCache.length)
+  }
 
-    console.log('next', nextPairCheckCache.length)
-  } else {
-    checkStep++
+  checkStep++
 
-    for (let ti = 0; ti < nextPairCheckCache.length; ti++) {
-      const [id1, id2] = nextPairCheckCache[ti]
-      if (needRemove.has(id1) || needRemove.has(id2)) continue
-      
-      const planet1 = planets.get(id1)
-      const planet2 = planets.get(id2)
-      
-      // Проверяем, что планеты еще существуют
-      if (!planet1 || !planet2) continue
+  for (let ti = 0; ti < nextPairCheckCache.length; ti++) {
+    const [id1, id2] = nextPairCheckCache[ti]
+    if (needRemove.get(id1) || needRemove.get(id2)) continue
 
-      const distance = calculateDistance(planet1, planet2)
-      const glueDistance = Math.min(planet1.radius, planet2.radius)
+    const planet1 = planets.get(id1)
+    const planet2 = planets.get(id2)
 
-      // Проверяем условие слияния
-      if (distance <= glueDistance) {
-        mergePlanets(planets, id1, id2)
-        needRemove.set(id2, true)
-      }
-      // Проверяем условие столкновения
-      else if (distance <= planet1.radius + planet2.radius) {
-        handleCollision(planet1, planet2, distance)
-      }
+    // Проверяем, что планеты еще существуют
+    if (!planet1 || !planet2) continue
+
+    const distance = calculateDistance(planet1, planet2)
+    const glueDistance = Math.min(planet1.radius, planet2.radius)
+
+    // Проверяем условие слияния
+    if (distance <= glueDistance) {
+      mergePlanets(planets, id1, id2)
+      needRemove.set(id2, true)
+      //checkStep = STEPS_FOR_FULL_COLLISIONS_CHECK
+    }
+    // Проверяем условие столкновения
+    else if (distance <= planet1.radius + planet2.radius) {
+      handleCollision(planet1, planet2, distance)
     }
   }
 
@@ -169,7 +160,9 @@ export function processCollisionsAndMergers(
       planets,
       handleCollision,
     )
-    return Array.from(needRemove.keys()).filter((key) => needRemove.get(key))
+    return Array.from(needRemove.entries())
+      .filter(([_, shouldRemove]) => shouldRemove)
+      .map(([id, _]) => id)
   }
 
   const needRemove: number[] = []
@@ -202,8 +195,6 @@ export function processCollisionsAndMergers(
 
   return needRemove
 }
-
-
 
 /**
  * Обрабатывает физически корректное столкновение между двумя планетами

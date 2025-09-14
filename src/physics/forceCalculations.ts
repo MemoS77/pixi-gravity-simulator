@@ -5,8 +5,8 @@ import { arePlanetsMovingAway } from './motionUtils'
 const MAX_PLANETS_FOR_OPTIMIZE = 500
 
 let nextPairCheckCache: [number, number][] = []
-const MIN_FORCE = 5
-const STEPS_TO_USE_PAIR_CHECK = 100
+const MIN_FORCE = 3
+const STEPS_TO_USE_PAIR_CHECK = 30
 let checkStep = 0
 let cachedForces: Map<number, Force> = new Map()
 
@@ -86,12 +86,6 @@ function optimizeCalcForces(
         force2.fy -= force.fy
       }
     }
-
-    console.log(
-      'nextPairCheckCache',
-      nextPairCheckCache.length,
-      cachedForces.size,
-    )
   } else {
     checkStep++
 
