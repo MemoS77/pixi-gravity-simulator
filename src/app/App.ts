@@ -143,10 +143,12 @@ export class App extends Application {
             ),
         )
 
-        if (
-          distance <
-          (this.planets[i].radius + this.planets[j].radius) * 0.25
-        ) {
+        const glueDistance = Math.min(
+          this.planets[i].radius,
+          this.planets[j].radius,
+        )
+
+        if (distance <= glueDistance) {
           const middlePoint = {
             x: (this.planets[i].position.x + this.planets[j].position.x) / 2,
             y: (this.planets[i].position.y + this.planets[j].position.y) / 2,
@@ -258,7 +260,7 @@ export class App extends Application {
 
     // Рисуем красную рамку по границе мира
     this.worldBorder.rect(0, 0, UNIVERSE_WIDTH, UNIVERSE_HEIGHT)
-    this.worldBorder.stroke({ color: 0xff0000, width: 7 })
+    this.worldBorder.stroke({ color: 0xff0000, width: 5 })
 
     // Добавляем рамку на задний план (под планеты)
     this.stage.addChildAt(this.worldBorder, 0)
