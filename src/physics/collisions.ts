@@ -133,7 +133,7 @@ export function handlePlanetCollision(
   if (velAlongNormal > 0) return
 
   // Коэффициент восстановления (0 = неупругое, 1 = упругое)
-  const restitution = 0.2
+  const restitution = 0.1
   // Вычисляем импульс столкновения
   const impulse =
     (-(1 + restitution) * velAlongNormal) /
@@ -148,23 +148,29 @@ export function handlePlanetCollision(
   planet2.speed.x += impulseX / planet2.mass
   planet2.speed.y += impulseY / planet2.mass
 
-  /*
-  // Разделяем объекты, чтобы они не пересекались
+  // Рассчитываем степень проникновения объектов друг в друга
   const overlap = planet1.radius + planet2.radius - distance
-  if (overlap > 0) {
-    const separationX = normalX * overlap * 0.5
-    const separationY = normalY * overlap * 0.5
 
-    planet1.position.x -= separationX
-    planet1.position.y -= separationY
-    planet2.position.x += separationX
-    planet2.position.y += separationY
+  // Применяем трение для постепенной остановки в зависимости от проникновения
+  if (overlap > 0) {
+    // Нормализуем значение проникновения (от 0 до 1)
+    // Делим на сумму радиусов, чтобы получить относительное проникновение
+    const normalizedOverlap = Math.min(
+      overlap / (planet1.radius + planet2.radius),
+      1,
+    )
+
+    // Вычисляем коэффициент трения на основе степени проникновения
+    // От минимального (0.01) при легком касании до максимального (0.3) при полном перекрытии
+    const minFriction = 0.01
+    const maxFriction = 0.3
+    const frictionCoeff =
+      minFriction + normalizedOverlap * (maxFriction - minFriction)
+
+    // Применяем трение, пропорциональное перекрытию
+    planet1.speed.x *= 1 - frictionCoeff
+    planet1.speed.y *= 1 - frictionCoeff
+    planet2.speed.x *= 1 - frictionCoeff
+    planet2.speed.y *= 1 - frictionCoeff
   }
-  */
-  // Применяем трение для постепенной остановки
-  const frictionCoeff = 0.03
-  planet1.speed.x *= 1 - frictionCoeff
-  planet1.speed.y *= 1 - frictionCoeff
-  planet2.speed.x *= 1 - frictionCoeff
-  planet2.speed.y *= 1 - frictionCoeff
 }

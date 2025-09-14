@@ -4,6 +4,8 @@ import {
   UNIVERSE_WIDTH,
   UNIVERSE_HEIGHT,
   DEFAULT_PLANETS_COUNT,
+  UNIVERSE_BORDER_COLOR,
+  UNIVERSE_BORDER_WIDTH,
 } from '../constants/universe'
 import { CameraManager } from './CameraManager'
 import { PhysicsWorkerManager } from '../workers/PhysicsWorkerManager'
@@ -84,9 +86,7 @@ export class App extends Application {
   /**
    * Обработка обновления физики от воркера
    */
-  private handlePhysicsUpdate(data: {
-    fps: number
-  }): void {
+  private handlePhysicsUpdate(data: { fps: number }): void {
     // Планеты уже обновлены в нашем Map через ссылку
     //this.applyPlanets()
     // Обновляем UI через колбэк
@@ -158,7 +158,7 @@ export class App extends Application {
 
   getCurrentQuality(): string {
     // Метод сохранен для совместимости
-    return 'high' 
+    return 'high'
   }
 
   private createWorldBorder(): void {
@@ -166,7 +166,10 @@ export class App extends Application {
 
     // Рисуем красную рамку по границе мира
     this.worldBorder.rect(0, 0, UNIVERSE_WIDTH, UNIVERSE_HEIGHT)
-    this.worldBorder.stroke({ color: 0xff0000, width: 5 })
+    this.worldBorder.stroke({
+      color: UNIVERSE_BORDER_COLOR,
+      width: UNIVERSE_BORDER_WIDTH,
+    })
 
     // Добавляем рамку на задний план (под планеты)
     this.stage.addChildAt(this.worldBorder, 0)

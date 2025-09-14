@@ -103,13 +103,10 @@ function updatePhysics(deltaTime: number): {
   state.performanceMonitor.startFrame()
   state.performanceMonitor.startPhysics()
 
-  // ШАГ 1: Рассчитываем все гравитационные силы
-  state.performanceMonitor.startPhysics()
   const forces = calculateAllGravitationalForces(
     state.planets,
     state.gravityConst,
   )
-  state.performanceMonitor.endPhysics()
 
   // ШАГ 2: Обновляем позиции и скорости планет
   updatePlanetPositions(state.planets, forces, deltaTime)
@@ -223,8 +220,8 @@ self.addEventListener(
         break
 
       case 'setQuality':
-      // Больше не используется
-      break
+        // Больше не используется
+        break
     }
   },
 )
