@@ -39,7 +39,7 @@ export class App extends Application {
     this.gravityConst = gravityConst
   }
 
-  async applyPlanets(): Promise<void> {
+  applyPlanets(): void {
     this.planets.forEach((planet) => {
       if (!planet.graphics) return
       planet.graphics.position.set(planet.position.x, planet.position.y)
@@ -53,8 +53,8 @@ export class App extends Application {
     })
   }
 
-  async loadPlanets(): Promise<void> {
-    this.planets = generateRandomPlanets(DEFAULT_PLANETS_COUNT)
+  loadPlanets(planetsCount: number): void {
+    this.planets = generateRandomPlanets(planetsCount)
 
     this.planets.forEach((planet) => {
       const graphics = new Graphics()
@@ -63,12 +63,18 @@ export class App extends Application {
       planet.needUpdate = true
     })
 
-    await this.applyPlanets()
+    this.applyPlanets()
   }
 
-  async run(): Promise<void> {
+  restart(planetsCount: number): void {
+    this.planets = []
+    this.stage.removeChildren()
     this.createWorldBorder()
-    await this.loadPlanets()
+    this.loadPlanets(planetsCount)
+  }
+
+  run(): void {
+    this.restart(DEFAULT_PLANETS_COUNT)
     this.addTicker()
   }
 
