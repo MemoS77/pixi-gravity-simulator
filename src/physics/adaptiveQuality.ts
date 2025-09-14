@@ -1,16 +1,16 @@
 import { PlanetInfo } from '../types'
 import { PerformanceMonitor } from '../utils/performanceMonitor'
-import { 
+import {
   calculateAllGravitationalForces,
   calculateOptimizedGravitationalForces,
-  calculateAdaptiveGravitationalForces
+  calculateAdaptiveGravitationalForces,
 } from './index'
 
 export enum QualityLevel {
   LOW = 'low',
-  MEDIUM = 'medium', 
+  MEDIUM = 'medium',
   HIGH = 'high',
-  ULTRA = 'ultra'
+  ULTRA = 'ultra',
 }
 
 export interface QualitySettings {
@@ -25,7 +25,7 @@ export interface QualitySettings {
  * Адаптивная система управления качеством физических расчетов
  */
 export class AdaptiveQualityManager {
-  private currentQuality: QualityLevel = QualityLevel.HIGH
+  private currentQuality: QualityLevel = QualityLevel.MEDIUM
   private performanceMonitor: PerformanceMonitor
   private frameCounter = 0
   private lastQualityChange = 0
@@ -37,29 +37,29 @@ export class AdaptiveQualityManager {
       maxInteractionDistance: 1200, // Увеличиваем для лучшей точности
       minForceThreshold: 0.02, // Порог для разделения на точные/аппроксимированные
       spatialGridEnabled: true,
-      updateFrequency: 1 // Обновляем каждый кадр с аппроксимацией
+      updateFrequency: 1, // Обновляем каждый кадр с аппроксимацией
     },
     [QualityLevel.MEDIUM]: {
       level: QualityLevel.MEDIUM,
       maxInteractionDistance: 1200,
       minForceThreshold: 0.05,
       spatialGridEnabled: true,
-      updateFrequency: 1
+      updateFrequency: 1,
     },
     [QualityLevel.HIGH]: {
       level: QualityLevel.HIGH,
       maxInteractionDistance: 1500,
       minForceThreshold: 0.01,
       spatialGridEnabled: true,
-      updateFrequency: 1
+      updateFrequency: 1,
     },
     [QualityLevel.ULTRA]: {
       level: QualityLevel.ULTRA,
       maxInteractionDistance: 2000,
       minForceThreshold: 0.001,
       spatialGridEnabled: false, // Полный расчет без оптимизаций
-      updateFrequency: 1
-    }
+      updateFrequency: 1,
+    },
   }
 
   constructor(performanceMonitor: PerformanceMonitor) {
@@ -69,11 +69,14 @@ export class AdaptiveQualityManager {
   /**
    * Вычисляет гравитационные силы с учетом текущего уровня качества
    */
-  calculateForces(planets: PlanetInfo[], gravityConst: number): Array<{ fx: number; fy: number }> {
+  calculateForces(
+    planets: PlanetInfo[],
+    gravityConst: number,
+  ): Array<{ fx: number; fy: number }> {
     this.frameCounter++
-    
+
     const settings = this.qualitySettings[this.currentQuality]
-    
+
     // Пропускаем физические расчеты если нужно (для экономии производительности)
     if (this.frameCounter % settings.updateFrequency !== 0) {
       return planets.map(() => ({ fx: 0, fy: 0 }))
@@ -83,16 +86,16 @@ export class AdaptiveQualityManager {
     switch (this.currentQuality) {
       case QualityLevel.LOW:
         return this.calculateLowQualityForces(planets, gravityConst)
-      
+
       case QualityLevel.MEDIUM:
         return calculateOptimizedGravitationalForces(planets, gravityConst)
-      
+
       case QualityLevel.HIGH:
         return calculateAdaptiveGravitationalForces(planets, gravityConst)
-      
+
       case QualityLevel.ULTRA:
         return calculateAllGravitationalForces(planets, gravityConst)
-      
+
       default:
         return calculateAdaptiveGravitationalForces(planets, gravityConst)
     }
@@ -101,15 +104,19 @@ export class AdaptiveQualityManager {
   /**
    * Расчет сил для низкого качества - физически корректная аппроксимация
    */
-  private calculateLowQualityForces(planets: PlanetInfo[], gravityConst: number): Array<{ fx: number; fy: number }> {
+  private calculateLowQualityForces(
+    planets: PlanetInfo[],
+    gravityConst: number,
+  ): Array<{ fx: number; fy: number }> {
     const forces = planets.map(() => ({ fx: 0, fy: 0 }))
     const settings = this.qualitySettings[QualityLevel.LOW]
-    const maxDistSq = settings.maxInteractionDistance * settings.maxInteractionDistance
+    const maxDistSq =
+      settings.maxInteractionDistance * settings.maxInteractionDistance
     const maxDirectInteractions = 15 // Максимум точных взаимодействий
 
     for (let i = 0; i < planets.length; i++) {
       const currentPlanet = planets[i]
-      
+
       // Разделяем взаимодействия на точные и аппроксимированные
       const directInteractions: Array<{
         index: number
@@ -117,7 +124,7 @@ export class AdaptiveQualityManager {
         forceY: number
         priority: number
       }> = []
-      
+
       const distantObjects: Array<{
         mass: number
         x: number
@@ -135,14 +142,15 @@ export class AdaptiveQualityManager {
         if (distSq > maxDistSq) continue
 
         const distance = Math.sqrt(distSq)
-        const force = (gravityConst * currentPlanet.mass * otherPlanet.mass) / distSq
-        
+        const force =
+          (gravityConst * currentPlanet.mass * otherPlanet.mass) / distSq
+
         if (force < settings.minForceThreshold) {
           // Не игнорируем, а сохраняем для аппроксимации
           distantObjects.push({
             mass: otherPlanet.mass,
             x: otherPlanet.position.x,
-            y: otherPlanet.position.y
+            y: otherPlanet.position.y,
           })
           continue
         }
@@ -155,14 +163,14 @@ export class AdaptiveQualityManager {
           index: j,
           forceX,
           forceY,
-          priority
+          priority,
         })
       }
 
       // Применяем самые сильные взаимодействия точно
       directInteractions.sort((a, b) => b.priority - a.priority)
       const topInteractions = directInteractions.slice(0, maxDirectInteractions)
-      
+
       for (const interaction of topInteractions) {
         forces[i].fx += interaction.forceX
         forces[i].fy += interaction.forceY
@@ -171,9 +179,9 @@ export class AdaptiveQualityManager {
       // Аппроксимируем слабые взаимодействия через центр масс
       if (distantObjects.length > 0) {
         const approximateForce = this.calculateCenterOfMassApproximation(
-          currentPlanet, 
-          distantObjects, 
-          gravityConst
+          currentPlanet,
+          distantObjects,
+          gravityConst,
         )
         forces[i].fx += approximateForce.fx
         forces[i].fy += approximateForce.fy
@@ -189,7 +197,7 @@ export class AdaptiveQualityManager {
   private calculateCenterOfMassApproximation(
     currentPlanet: PlanetInfo,
     distantObjects: Array<{ mass: number; x: number; y: number }>,
-    gravityConst: number
+    gravityConst: number,
   ): { fx: number; fy: number } {
     if (distantObjects.length === 0) {
       return { fx: 0, fy: 0 }
@@ -213,18 +221,18 @@ export class AdaptiveQualityManager {
     const dx = centerX - currentPlanet.position.x
     const dy = centerY - currentPlanet.position.y
     const distSq = dx * dx + dy * dy
-    
+
     if (distSq === 0) return { fx: 0, fy: 0 }
-    
+
     const distance = Math.sqrt(distSq)
     const force = (gravityConst * currentPlanet.mass * totalMass) / distSq
-    
+
     // Применяем коэффициент аппроксимации (0.3 - консервативно)
     const approximationFactor = 0.3
-    
+
     return {
-      fx: (force * (dx / distance)) * approximationFactor,
-      fy: (force * (dy / distance)) * approximationFactor
+      fx: force * (dx / distance) * approximationFactor,
+      fy: force * (dy / distance) * approximationFactor,
     }
   }
 
@@ -253,9 +261,14 @@ export class AdaptiveQualityManager {
    * Понижает уровень качества
    */
   private reduceQuality(): void {
-    const levels = [QualityLevel.ULTRA, QualityLevel.HIGH, QualityLevel.MEDIUM, QualityLevel.LOW]
+    const levels = [
+      QualityLevel.ULTRA,
+      QualityLevel.HIGH,
+      QualityLevel.MEDIUM,
+      QualityLevel.LOW,
+    ]
     const currentIndex = levels.indexOf(this.currentQuality)
-    
+
     if (currentIndex < levels.length - 1) {
       this.currentQuality = levels[currentIndex + 1]
       console.log(`Качество понижено до: ${this.currentQuality}`)
@@ -266,9 +279,14 @@ export class AdaptiveQualityManager {
    * Повышает уровень качества
    */
   private increaseQuality(): void {
-    const levels = [QualityLevel.LOW, QualityLevel.MEDIUM, QualityLevel.HIGH, QualityLevel.ULTRA]
+    const levels = [
+      QualityLevel.LOW,
+      QualityLevel.MEDIUM,
+      QualityLevel.HIGH,
+      QualityLevel.ULTRA,
+    ]
     const currentIndex = levels.indexOf(this.currentQuality)
-    
+
     if (currentIndex < levels.length - 1) {
       this.currentQuality = levels[currentIndex + 1]
       console.log(`Качество повышено до: ${this.currentQuality}`)

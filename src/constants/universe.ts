@@ -3,8 +3,8 @@
  */
 
 // Размеры вселенной
-export const UNIVERSE_WIDTH = 7000
-export const UNIVERSE_HEIGHT = 7000
+export const UNIVERSE_WIDTH = 10000
+export const UNIVERSE_HEIGHT = 10000
 export const DEFAULT_PLANETS_COUNT = 3000
 
 // Параметры камеры/viewport
