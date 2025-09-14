@@ -1,0 +1,175 @@
+import { Application, Graphics } from 'pixi.js'
+import { PlanetInfo } from '../types'
+import { generateRandomPlanets } from '../utils/generateRandomPlanets'
+import {
+  applyBoundaryConditions,
+  calculateGravitationalForce,
+  calculateRadius,
+} from '../physics'
+import { classifyBody } from '../utils/classify'
+
+export class App extends Application {
+  private planets: PlanetInfo[] = []
+  private gravityConst = 100
+
+  async applyPlanets(): Promise<void> {
+    this.planets.forEach((planet) => {
+      if (!planet.graphics) return
+      planet.graphics.position.set(planet.position.x, planet.position.y)
+      if (planet.needUpdate) {
+        planet.graphics.clear()
+        planet.graphics.circle(0, 0, planet.radius)
+        planet.graphics.fill(planet.color)
+        planet.graphics.stroke({ color: 0xffffff, width: 1 })
+      }
+      planet.needUpdate = false
+    })
+  }
+
+  async loadPlanets(): Promise<void> {
+    this.planets = generateRandomPlanets(1000)
+
+    this.planets.forEach((planet) => {
+      const graphics = new Graphics()
+      this.stage.addChild(graphics)
+      planet.graphics = graphics
+      planet.needUpdate = true
+    })
+
+    await this.applyPlanets()
+  }
+
+  async run(): Promise<void> {
+    console.log('run')
+    await this.loadPlanets()
+    this.addTicker()
+  }
+
+  updatePlanets(deltaTime: number): void {
+    // ШАГ 1: Рассчитываем все гравитационные силы
+    const forces = this.planets.map(() => ({ fx: 0, fy: 0 }))
+
+    // Вычисляем гравитационные силы между всеми парами планет
+    for (let i = 0; i < this.planets.length; i++) {
+      for (let j = i + 1; j < this.planets.length; j++) {
+        const force = calculateGravitationalForce(
+          this.planets[i],
+          this.planets[j],
+          this.gravityConst,
+        )
+
+        // Применяем силу к первой планете (притяжение ко второй)
+        forces[i].fx += force.fx
+        forces[i].fy += force.fy
+
+        // Применяем противоположную силу ко второй планете (третий закон Ньютона)
+        forces[j].fx -= force.fx
+        forces[j].fy -= force.fy
+      }
+    }
+
+    // ШАГ 2: Рассчитываем ускорения для всех планет
+    const accelerations = forces.map((force, index) => ({
+      ax: force.fx / this.planets[index].mass,
+      ay: force.fy / this.planets[index].mass,
+    }))
+
+    this.planets.forEach((planet, index) => {
+      const { ax, ay } = accelerations[index]
+
+      // Обновляем скорость: v = v0 + at
+      let newSpeedX = planet.speed.x + ax * deltaTime
+      let newSpeedY = planet.speed.y + ay * deltaTime
+
+      // Обновляем позицию: x = x0 + vt
+      let newPositionX = planet.position.x + newSpeedX * deltaTime
+      let newPositionY = planet.position.y + newSpeedY * deltaTime
+
+      // Применяем граничные условия
+      const boundaryResult = applyBoundaryConditions(
+        { x: newPositionX, y: newPositionY },
+        { x: newSpeedX, y: newSpeedY },
+      )
+
+      newPositionX = boundaryResult.position.x
+      newPositionY = boundaryResult.position.y
+      newSpeedX = boundaryResult.speed.x
+      newSpeedY = boundaryResult.speed.y
+
+      // Возвращаем новый объект планеты
+      planet.speed = { x: newSpeedX, y: newSpeedY }
+      planet.position = { x: newPositionX, y: newPositionY }
+    })
+
+    // ШАГ 5: Поглощение, если приблизились как минимум на половину суммы радиусов
+    const needRemove: Map<number, boolean> = new Map()
+
+    for (let i = 0; i < this.planets.length; i++) {
+      if (needRemove.has(i)) continue
+      for (let j = i + 1; j < this.planets.length; j++) {
+        if (needRemove.has(j)) continue
+        const distance = Math.sqrt(
+          Math.pow(this.planets[i].position.x - this.planets[j].position.x, 2) +
+            Math.pow(
+              this.planets[i].position.y - this.planets[j].position.y,
+              2,
+            ),
+        )
+
+        if (distance < this.planets[i].radius + this.planets[j].radius) {
+          const middlePoint = {
+            x: (this.planets[i].position.x + this.planets[j].position.x) / 2,
+            y: (this.planets[i].position.y + this.planets[j].position.y) / 2,
+          }
+          // Склеиваем и перевычиляем радиус, переклассифицируем с новой плотностью и цветом
+          const mergedMass = this.planets[i].mass + this.planets[j].mass
+          const { color, density } = classifyBody(mergedMass)
+          const mergedRadius = calculateRadius(mergedMass, density)
+
+          // Сложить векторно скорость с учетом масс
+          const speed = {
+            x:
+              (this.planets[i].speed.x * this.planets[i].mass +
+                this.planets[j].speed.x * this.planets[j].mass) /
+              mergedMass,
+            y:
+              (this.planets[i].speed.y * this.planets[i].mass +
+                this.planets[j].speed.y * this.planets[j].mass) /
+              mergedMass,
+          }
+
+          this.planets[i].mass = mergedMass
+          this.planets[i].density = density
+          this.planets[i].color = color
+          this.planets[i].radius = mergedRadius
+          this.planets[i].position = middlePoint
+          this.planets[i].speed = speed
+          this.planets[i].needUpdate = true
+
+          console.log('merged', this.planets[i])
+
+          needRemove.set(j, true)
+        }
+      }
+    }
+
+    // Удаляем спрайты
+
+    if (needRemove.size > 0) {
+      needRemove.forEach((_, index) => {
+        this.planets[index].graphics?.destroy()
+      })
+
+      this.planets = this.planets.filter((_, index) => !needRemove.has(index))
+    }
+
+    this.applyPlanets()
+  }
+
+  addTicker(): void {
+    this.ticker.add((time) => {
+      const deltaTime = time.deltaTime * 0.016
+      this.updatePlanets(deltaTime)
+    })
+  }
+}
