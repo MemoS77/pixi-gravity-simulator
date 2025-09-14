@@ -63,6 +63,85 @@ export function mergePlanets(
   planet1.needUpdate = true
 }
 
+const STEPS_FOR_FULL_COLLISIONS_CHECK = 50
+const MIN_DISTANCE_FOR_PAIR_CHECK = 1000
+const MAX_PLANETS_FOR_OPTIMIZE = 1000
+
+let checkStep = 0
+let lastPlanetsLength = 0
+let nextPairCheckCache: [number, number][] = []
+
+function optimizeProcessCollisionsAndMergers(
+  planets: PlanetInfo[],
+  handleCollision: (
+    planet1: PlanetInfo,
+    planet2: PlanetInfo,
+    distance: number,
+  ) => void,
+): Map<number, boolean> {
+  const needRemove: Map<number, boolean> = new Map()
+
+  if (
+    nextPairCheckCache.length === 0 ||
+    checkStep > STEPS_FOR_FULL_COLLISIONS_CHECK ||
+    lastPlanetsLength !== planets.length
+  ) {
+    checkStep = 0
+    lastPlanetsLength = planets.length
+
+    nextPairCheckCache = []
+
+    for (let i = 0; i < planets.length; i++) {
+      if (needRemove.has(i)) continue
+
+      for (let j = i + 1; j < planets.length; j++) {
+        if (needRemove.has(j)) continue
+
+        const distance = calculateDistance(planets[i], planets[j])
+        const glueDistance = Math.min(planets[i].radius, planets[j].radius)
+
+        // Проверяем условие слияния
+        if (distance <= glueDistance) {
+          mergePlanets(planets, i, j)
+          needRemove.set(j, true)
+        }
+        // Проверяем условие столкновения
+        else if (distance <= planets[i].radius + planets[j].radius) {
+          handleCollision(planets[i], planets[j], distance)
+        } else {
+          if (distance < MIN_DISTANCE_FOR_PAIR_CHECK) {
+            nextPairCheckCache.push([i, j])
+          }
+        }
+      }
+    }
+
+    console.log('next', nextPairCheckCache.length)
+  } else {
+    checkStep++
+
+    for (let ti = 0; ti < nextPairCheckCache.length; ti++) {
+      const [i, j] = nextPairCheckCache[ti]
+      if (needRemove.has(i) || needRemove.has(j)) continue
+
+      const distance = calculateDistance(planets[i], planets[j])
+      const glueDistance = Math.min(planets[i].radius, planets[j].radius)
+
+      // Проверяем условие слияния
+      if (distance <= glueDistance) {
+        mergePlanets(planets, i, j)
+        needRemove.set(j, true)
+      }
+      // Проверяем условие столкновения
+      else if (distance <= planets[i].radius + planets[j].radius) {
+        handleCollision(planets[i], planets[j], distance)
+      }
+    }
+  }
+
+  return needRemove
+}
+
 /**
  * Обрабатывает столкновения и слияния между планетами
  * @param planets Массив планет
@@ -70,6 +149,21 @@ export function mergePlanets(
  * @returns Map с индексами планет, которые нужно удалить
  */
 export function processCollisionsAndMergers(
+  planets: PlanetInfo[],
+  handleCollision: (
+    planet1: PlanetInfo,
+    planet2: PlanetInfo,
+    distance: number,
+  ) => void,
+): Map<number, boolean> {
+  if (planets.length < MAX_PLANETS_FOR_OPTIMIZE)
+    return processCollisionsAndMergersFull(planets, handleCollision)
+
+  return optimizeProcessCollisionsAndMergers(planets, handleCollision)
+}
+
+// Без оптимизаций, полная проверка
+function processCollisionsAndMergersFull(
   planets: PlanetInfo[],
   handleCollision: (
     planet1: PlanetInfo,

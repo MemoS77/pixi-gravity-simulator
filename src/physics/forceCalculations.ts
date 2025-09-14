@@ -17,10 +17,11 @@ export function calcForces(planets: PlanetInfo[], gravityConst: number) {
 }
 
 let nextPairCheckCache: [number, number][] = []
-const MIN_FORCE = 3
-const STEPS_TO_USE_PAIR_CHECK = 50
+const MIN_FORCE = 5
+const STEPS_TO_USE_PAIR_CHECK = 100
 let checkStep = 0
 let lastPlanetsLength = 0
+let cachedForces: Force[] = []
 
 function optimizeCalcForces(
   planets: PlanetInfo[],
@@ -36,6 +37,9 @@ function optimizeCalcForces(
     checkStep = 0
     lastPlanetsLength = planets.length
 
+    // Сохраним сумму сил для пар планет, которые не будем считать
+    cachedForces = planets.map(() => ({ fx: 0, fy: 0 }))
+
     // Вычисляем гравитационные силы между всеми парами планет
     for (let i = 0; i < planets.length; i++) {
       for (let j = i + 1; j < planets.length; j++) {
@@ -45,15 +49,16 @@ function optimizeCalcForces(
           gravityConst,
         )
 
-        if (Math.abs(force.fx) > MIN_FORCE || Math.abs(force.fy) > MIN_FORCE) {
-          // Проверить удаляются ли планеты друг от друга
-          const planetsAreMovingAway = arePlanetsMovingAway(
-            planets[i],
-            planets[j],
-          )
-          if (!planetsAreMovingAway) {
-            nextPairCheckCache.push([i, j])
-          }
+        if (
+          (Math.abs(force.fx) > MIN_FORCE || Math.abs(force.fy) > MIN_FORCE) &&
+          !arePlanetsMovingAway(planets[i], planets[j])
+        ) {
+          nextPairCheckCache.push([i, j])
+        } else {
+          cachedForces[i].fx += force.fx
+          cachedForces[i].fy += force.fy
+          cachedForces[j].fx -= force.fx
+          cachedForces[j].fy -= force.fy
         }
 
         // Применяем силу к первой планете (притяжение ко второй)
@@ -70,9 +75,11 @@ function optimizeCalcForces(
       'nextPairCheckCache',
       nextPairCheckCache.length,
       lastPlanetsLength,
+      cachedForces.length,
     )
   } else {
     checkStep++
+
     for (let ti = 0; ti < nextPairCheckCache.length; ti++) {
       const [i, j] = nextPairCheckCache[ti]
 
@@ -88,6 +95,11 @@ function optimizeCalcForces(
       // Применяем противоположную силу ко второй планете (третий закон Ньютона)
       forces[j].fx -= force.fx
       forces[j].fy -= force.fy
+    }
+
+    for (let i = 0; i < planets.length; i++) {
+      forces[i].fx += cachedForces[i].fx
+      forces[i].fy += cachedForces[i].fy
     }
   }
   return forces
