@@ -12,8 +12,8 @@ interface BodyInfo {
 
 const BODY_DATA: Record<CosmicBody, BodyInfo> = {
   [CosmicBody.Planet]: { density: 1, color: '#dde' },
-  [CosmicBody.Star]: { density: 3, color: 'yellow' },
-  [CosmicBody.NeutronStar]: { density: 10, color: 'blue' },
+  [CosmicBody.Star]: { density: 5, color: 'yellow' },
+  [CosmicBody.NeutronStar]: { density: 30, color: 'blue' },
   [CosmicBody.BlackHole]: { density: 1000, color: 'black' },
 }
 

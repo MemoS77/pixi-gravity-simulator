@@ -290,7 +290,7 @@ export class App extends Application {
     if (velAlongNormal > 0) return
 
     // Коэффициент восстановления (0 = неупругое, 1 = упругое)
-    const restitution = 0.8
+    const restitution = 0.2 //0.8
 
     // Вычисляем импульс столкновения
     const impulse =
@@ -319,7 +319,7 @@ export class App extends Application {
     }
 
     // Применяем трение для постепенной остановки
-    const frictionCoeff = 0.02
+    const frictionCoeff = 0.03
     planet1.speed.x *= 1 - frictionCoeff
     planet1.speed.y *= 1 - frictionCoeff
     planet2.speed.x *= 1 - frictionCoeff

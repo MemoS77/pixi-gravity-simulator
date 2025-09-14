@@ -14,7 +14,7 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
 
   for (let i = 0; i < count; i++) {
     // Случайная масса от 3 до 50
-    const mass = Math.random() * 100
+    const mass = Math.random() * 200
 
     const { density, color } = classifyBody(mass)
 
