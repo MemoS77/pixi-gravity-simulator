@@ -1,5 +1,6 @@
 import { PlanetInfo } from '../types'
 import { UNIVERSE_WIDTH, UNIVERSE_HEIGHT } from '../constants/universe'
+import { classifyBody } from './classify'
 
 /**
  * Генерирует случайные планеты с физически корректными параметрами
@@ -14,7 +15,7 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
     // Случайная масса от 3 до 50
     const mass = Math.random() * 200
 
-    const density = 1
+    const { density, color } = classifyBody(mass)
 
     // Случайная позиция с отступом от краев
     const margin = 100
@@ -29,15 +30,12 @@ export const generateRandomPlanets = (count: number): PlanetInfo[] => {
       y: (Math.random() - 0.5) * 6,
     }
 
-    // Случайная скорость вращения от -0.5 до 0.5
-    const rotationSpeed = (Math.random() - 0.5) * 1
-
     planets.push({
       mass,
       density,
       position,
       speed,
-      rotationSpeed,
+      color,
     })
   }
 

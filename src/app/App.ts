@@ -1,11 +1,10 @@
-import { Application, Assets, Sprite } from 'pixi.js'
+import { Application, Graphics } from 'pixi.js'
 import { PlanetInfo } from '../types'
 import { generateRandomPlanets } from '../utils/generateRandomPlanets'
 import {
   applyBoundaryConditions,
   calculateGravitationalForce,
   calculateRadius,
-  checkCollisions,
 } from '../physics'
 
 export class App extends Application {
@@ -14,26 +13,26 @@ export class App extends Application {
 
   async applyPlanets(): Promise<void> {
     this.planets.forEach((planet) => {
-      if (!planet.sprite) return
-      planet.sprite.position.set(planet.position.x, planet.position.y)
-      planet.sprite.rotation = planet.rotationSpeed
+      if (!planet.graphics) return
+      planet.graphics.position.set(planet.position.x, planet.position.y)
     })
   }
 
   async loadPlanets(): Promise<void> {
     this.planets = generateRandomPlanets(100)
 
-    const texture = await Assets.load('/assets/planet.png')
     this.planets.forEach((planet) => {
-      const sprite = new Sprite(texture)
-      sprite.anchor.set(0.5)
-      sprite.position.set(planet.position.x, planet.position.y)
-      sprite.width = calculateRadius(planet.mass, planet.density) * 2
-      sprite.height = calculateRadius(planet.mass, planet.density) * 2
-      sprite.rotation = planet.rotationSpeed
-      sprite.position.set(planet.position.x, planet.position.y)
-      this.stage.addChild(sprite)
-      planet.sprite = sprite
+      const graphics = new Graphics()
+      const radius = calculateRadius(planet.mass, planet.density)
+
+      // Рисуем окружность с случайным цветом и белой рамкой
+      graphics.circle(0, 0, radius)
+      graphics.fill(planet.color)
+      graphics.stroke({ color: 0xffffff, width: 1 })
+
+      graphics.position.set(planet.position.x, planet.position.y)
+      this.stage.addChild(graphics)
+      planet.graphics = graphics
     })
   }
 
