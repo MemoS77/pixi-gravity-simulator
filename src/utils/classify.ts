@@ -11,9 +11,9 @@ interface BodyInfo {
 }
 
 const BODY_DATA: Record<CosmicBody, BodyInfo> = {
-  [CosmicBody.Planet]: { density: 0.3, color: '#dde' },
+  [CosmicBody.Planet]: { density: 0.2, color: '#dde' },
   [CosmicBody.Star]: { density: 1, color: 'yellow' },
-  [CosmicBody.NeutronStar]: { density: 3, color: 'blue' },
+  [CosmicBody.NeutronStar]: { density: 10, color: 'blue' },
   [CosmicBody.BlackHole]: { density: 100, color: 'black' },
 }
 
@@ -27,11 +27,11 @@ interface Result {
  * Классифицирует по массе (условно в земных массах).
  */
 export function classifyBody(mass: number): Result {
-  if (mass < 500)
+  if (mass < 1000)
     return { type: CosmicBody.Planet, ...BODY_DATA[CosmicBody.Planet] }
-  if (mass < 5000)
+  if (mass < 10000)
     return { type: CosmicBody.Star, ...BODY_DATA[CosmicBody.Star] }
-  if (mass < 50000)
+  if (mass < 100000)
     return {
       type: CosmicBody.NeutronStar,
       ...BODY_DATA[CosmicBody.NeutronStar],

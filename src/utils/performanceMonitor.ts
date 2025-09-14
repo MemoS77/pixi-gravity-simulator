@@ -10,10 +10,6 @@ export class PerformanceMonitor {
   private lastFrameTime = 0
   private frameHistory: number[] = []
   private maxHistorySize = 60 // Хранить данные за последние 60 кадров
-  
-  // Для совместимости с существующим кодом
-  private physicsTime = 0
-  private renderTime = 0
 
   /**
    * Начинает измерение времени кадра (для совместимости)
@@ -33,7 +29,7 @@ export class PerformanceMonitor {
    * Заканчивает измерение физики (для совместимости)
    */
   endPhysics(): number {
-    return 0;
+    return 0
   }
 
   /**
@@ -47,7 +43,7 @@ export class PerformanceMonitor {
    * Заканчивает измерение рендера (для совместимости)
    */
   endRender(): number {
-    return 0;
+    return 0
   }
 
   /**
@@ -55,18 +51,18 @@ export class PerformanceMonitor {
    */
   recordFrame(): number {
     const currentTime = performance.now()
-    
+
     // Если это не первый кадр
     if (this.lastFrameTime > 0) {
       const frameTime = currentTime - this.lastFrameTime
       this.frameHistory.push(frameTime)
-      
+
       // Ограничиваем размер истории
       if (this.frameHistory.length > this.maxHistorySize) {
         this.frameHistory.shift()
       }
     }
-    
+
     this.lastFrameTime = currentTime
     return this.getFPS()
   }
@@ -81,8 +77,8 @@ export class PerformanceMonitor {
     }
 
     // Фильтруем некорректные значения (отрицательные или слишком большие)
-    const validFrameTimes = this.frameHistory.filter(time => 
-      time > 0 && time <= 1000
+    const validFrameTimes = this.frameHistory.filter(
+      (time) => time > 0 && time <= 1000,
     )
 
     if (validFrameTimes.length === 0) {
@@ -108,7 +104,7 @@ export class PerformanceMonitor {
     this.recordFrame()
     return this.getStats()
   }
-  
+
   /**
    * Для совместимости с существующим кодом
    */
@@ -116,7 +112,7 @@ export class PerformanceMonitor {
     const fps = this.getFPS()
     return {
       avgFrameTime: fps > 0 ? 1000 / fps : 16.67,
-      avgFps: fps
+      avgFps: fps,
     }
   }
 
@@ -125,7 +121,7 @@ export class PerformanceMonitor {
    */
   getStats(objectCount = 0, interactionCount = 0): PerformanceStats {
     return {
-      fps: this.getFPS()
+      fps: this.getFPS(),
     }
   }
 
